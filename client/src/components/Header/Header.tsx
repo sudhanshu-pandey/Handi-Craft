@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import styles from './Header.module.css'
 import LoginModal from '../LoginModal/LoginModal'
 import ProfileModal from '../ProfileModal/ProfileModal'
 import { useAuth } from '../../context/AuthContext'
+import MiniCart from '../MiniCart/MiniCart'
 
 const Header = () => {
   const { isLoggedIn, userProfile, login, logout } = useAuth()
@@ -12,8 +13,8 @@ const Header = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const navigate = useNavigate()
 
-  const handleLoginSuccess = (mobile: string) => {
-    login(mobile)
+  const handleLoginSuccess = (identifier: string, provider: 'mobile' | 'google' = 'mobile') => {
+    login(provider === 'google' ? '9999999999' : identifier)
     setTimeout(() => setIsLoginOpen(false), 1200)
   }
 
@@ -54,13 +55,15 @@ const Header = () => {
 
         {/* Right Actions */}
         <div className={styles.headerActions}>
-          <a href="/products" className={styles.shopNow}>Shop Now</a>
+            <Link to="/products" className={styles.shopNow}>Shop Now</Link>
 
           <button className={styles.searchBtn} onClick={() => setIsSearchOpen(!isSearchOpen)} aria-label="Search">
             🔍
           </button>
 
-          <a href="/cart" className={styles.cartLink} aria-label="Cart">🛒</a>
+          <div className={styles.cartLink}>
+            <MiniCart />
+          </div>
 
           {isLoggedIn && userProfile ? (
             <div className={styles.authActions}>

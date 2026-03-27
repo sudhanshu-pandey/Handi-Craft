@@ -49,6 +49,22 @@
   color: var(--text-on-primary);
 }
 
+.donateLink {
+  background: var(--primary);
+  color: var(--text-on-primary);
+  border: 1px solid color-mix(in srgb, var(--text-on-primary) 18%, transparent);
+  border-radius: 999px;
+  padding: 0.5rem 0.95rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.donateLink:hover {
+  background: var(--primary-dark);
+  color: var(--text-on-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
 .themeControl {
   display: flex;
   align-items: center;
@@ -133,6 +149,11 @@
     white-space: nowrap;
     width: 100%;
     border-radius: 8px;
+  }
+
+  .donateLink {
+    border-radius: 10px;
+    text-align: center;
   }
 
   .themeControl {

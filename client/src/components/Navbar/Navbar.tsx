@@ -77,9 +77,9 @@ const Navbar = () => {
           <div className={`${styles.menuLinks} ${isMenuOpen ? styles.menuOpen : ''}`.trim()}>
             <Link to="/" className={styles.navLink} onClick={handleLinkClick}>Home</Link>
             <Link to="/products" className={styles.navLink} onClick={handleLinkClick}>Products</Link>
-            <Link to="/cart" className={styles.navLink} onClick={handleLinkClick}>Cart</Link>
             <Link to="/about" className={styles.navLink} onClick={handleLinkClick}>About Us</Link>
             <Link to="/contact" className={styles.navLink} onClick={handleLinkClick}>Contact Us</Link>
+            <Link to="/donate" className={`${styles.navLink} ${styles.donateLink}`.trim()} onClick={handleLinkClick}>Donate Us</Link>
           </div>
         </div>
       </div>

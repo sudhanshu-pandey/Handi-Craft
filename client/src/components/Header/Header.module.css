@@ -163,6 +163,12 @@
   }
 }
 
+@media (max-width: 640px) {
+  .shopNow {
+    display: none;
+  }
+}
+
 @media (max-width: 480px) {
   .shopNow {
     padding: 9px 16px;

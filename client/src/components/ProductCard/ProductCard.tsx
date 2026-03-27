@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { Link } from 'react-router-dom'
 import styles from './ProductCard.module.css'
 
 interface Product {
@@ -24,7 +25,9 @@ const ProductCard = memo(({ product, onAddToCart }: ProductCardProps) => {
   return (
     <div className={styles.card}>
       <div className={styles.imageWrapper}>
-        <img src={product.image} alt={product.name} />
+        <Link to={`/products/${product.id}`} aria-label={`View ${product.name}`}>
+          <img src={product.image} alt={product.name} loading="lazy" />
+        </Link>
         {product.sale && <span className={styles.saleBadge}>SALE!</span>}
         <span className={styles.category}>{product.category}</span>
       </div>
@@ -45,13 +48,17 @@ const ProductCard = memo(({ product, onAddToCart }: ProductCardProps) => {
         <div className={styles.rating}>
           ⭐⭐⭐⭐⭐ 0 out of 5
         </div>
-        <button 
-          className="btn btn-primary"
-          onClick={() => onAddToCart(product)}
-          style={{ width: '100%' }}
-        >
-          Add to Cart
-        </button>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+          <button
+            className="btn btn-primary"
+            onClick={() => onAddToCart(product)}
+          >
+            Add to Cart
+          </button>
+          <Link to={`/products/${product.id}`} className="btn btn-secondary" style={{ textAlign: 'center' }}>
+            View
+          </Link>
+        </div>
       </div>
     </div>
   )
