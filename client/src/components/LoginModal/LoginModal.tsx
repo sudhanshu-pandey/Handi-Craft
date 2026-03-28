@@ -2,6 +2,7 @@ import { ChangeEvent, KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, u
 import { createPortal } from 'react-dom'
 import { getCountries, getCountryCallingCode, isValidPhoneNumber, parsePhoneNumber } from 'react-phone-number-input'
 import countryLabels from 'react-phone-number-input/locale/en.json'
+import { useAuth } from '../../context/AuthContext'
 import styles from './LoginModal.module.css'
 
 type LoginModalProps = {
@@ -38,11 +39,13 @@ const COUNTRY_OPTIONS: CountryConfig[] = SUPPORTED_COUNTRIES.map((country) => ({
 })).sort((left, right) => left.label.localeCompare(right.label))
 
 const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
+  const { sendOTP, verifyOTP } = useAuth()
   const [authMethod, setAuthMethod] = useState<'mobile' | 'google'>('mobile')
   const [selectedCountryId, setSelectedCountryId] = useState<CountryId>(DEFAULT_COUNTRY_ID)
   const [isCountryMenuOpen, setIsCountryMenuOpen] = useState(false)
   const [isCountryMenuMounted, setIsCountryMenuMounted] = useState(false)
   const [mobile, setMobile] = useState('')
+  const [fullPhone, setFullPhone] = useState('')
   const [mobileError, setMobileError] = useState('')
   const [step, setStep] = useState<'mobile' | 'otp' | 'success'>('mobile')
   const [successProvider, setSuccessProvider] = useState<'mobile' | 'google'>('mobile')
@@ -50,6 +53,8 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
   const [resendTimer, setResendTimer] = useState(RESEND_SECONDS)
   const [otpError, setOtpError] = useState('')
   const [menuPosition, setMenuPosition] = useState<MenuPosition>({ top: 0, left: 0, width: DROPDOWN_MIN_WIDTH })
+  const [isSending, setIsSending] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(false)
 
   const otpRefs = useRef<Array<HTMLInputElement | null>>([])
   const countryWrapRef = useRef<HTMLDivElement | null>(null)
@@ -83,10 +88,13 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
     setStep('mobile')
     setSuccessProvider('mobile')
     setMobile('')
+    setFullPhone('')
     setMobileError('')
     setOtpDigits(Array(OTP_LENGTH).fill(''))
     setOtpError('')
     setResendTimer(RESEND_SECONDS)
+    setIsSending(false)
+    setIsVerifying(false)
   }
 
   const maskedMobile = useMemo(() => {
@@ -297,17 +305,31 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
     countryButtonRef.current?.focus()
   }
 
-  const handleSendOtp = () => {
+  const handleSendOtp = async () => {
     if (!parsedPhoneNumber || !isValidPhoneNumber(parsedPhoneNumber.number)) {
       setMobileError(`Please enter a valid mobile number for ${selectedCountry.label}`)
       return
     }
 
-    setMobile(parsedPhoneNumber.nationalNumber)
-    setStep('otp')
-    setOtpDigits(Array(OTP_LENGTH).fill(''))
-    setOtpError('')
-    setResendTimer(RESEND_SECONDS)
+    const phoneNumber = parsedPhoneNumber.number.replace(/\D/g, '')
+    
+    try {
+      setIsSending(true)
+      setMobileError('')
+      setOtpError('')
+      
+      await sendOTP(phoneNumber)
+      
+      setFullPhone(phoneNumber)
+      setMobile(parsedPhoneNumber.nationalNumber)
+      setStep('otp')
+      setOtpDigits(Array(OTP_LENGTH).fill(''))
+      setResendTimer(RESEND_SECONDS)
+    } catch (err: any) {
+      setMobileError(err.message || 'Failed to send OTP. Please try again.')
+    } finally {
+      setIsSending(false)
+    }
   }
 
   const handleOtpChange = (index: number, value: string) => {
@@ -334,16 +356,27 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
     }
   }
 
-  const handleVerifyOtp = () => {
+  const handleVerifyOtp = async () => {
     const otpValue = otpDigits.join('')
     if (otpValue.length !== OTP_LENGTH) {
       setOtpError('Please enter the complete OTP code')
       return
     }
 
-    setSuccessProvider('mobile')
-    setStep('success')
-    onLoginSuccess?.(parsedPhoneNumber?.number ?? `${selectedCountry.code}${mobile}`, 'mobile')
+    try {
+      setIsVerifying(true)
+      setOtpError('')
+      
+      await verifyOTP(fullPhone, otpValue)
+      
+      setSuccessProvider('mobile')
+      setStep('success')
+      onLoginSuccess?.(parsedPhoneNumber?.number ?? `${selectedCountry.code}${mobile}`, 'mobile')
+    } catch (err: any) {
+      setOtpError(err.message || 'Failed to verify OTP. Please try again.')
+    } finally {
+      setIsVerifying(false)
+    }
   }
 
   const handleGoogleLogin = () => {
@@ -352,14 +385,25 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
     onLoginSuccess?.('9999999999', 'google')
   }
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (resendTimer > 0) {
       return
     }
-    setOtpDigits(Array(OTP_LENGTH).fill(''))
-    setResendTimer(RESEND_SECONDS)
-    setOtpError('')
-    otpRefs.current[0]?.focus()
+    
+    try {
+      setIsSending(true)
+      setOtpError('')
+      
+      await sendOTP(fullPhone)
+      
+      setOtpDigits(Array(OTP_LENGTH).fill(''))
+      setResendTimer(RESEND_SECONDS)
+      otpRefs.current[0]?.focus()
+    } catch (err: any) {
+      setOtpError(err.message || 'Failed to resend OTP. Please try again.')
+    } finally {
+      setIsSending(false)
+    }
   }
 
   return (
@@ -464,8 +508,13 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
             <p className={styles.helper}>Enter a valid mobile number for {selectedCountry.label}.</p>
             {mobileError ? <p className={styles.error}>{mobileError}</p> : null}
 
-            <button type="button" className={styles.primaryButton} onClick={handleSendOtp}>
-              Send OTP
+            <button 
+              type="button" 
+              className={styles.primaryButton} 
+              onClick={handleSendOtp}
+              disabled={isSending}
+            >
+              {isSending ? 'Sending OTP...' : 'Send OTP'}
             </button>
             <div className={styles.divider}><span>or</span></div>
             <button type="button" className={styles.googleButton} onClick={() => switchMethod('google')}>
@@ -515,15 +564,30 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
 
             {otpError ? <p className={styles.error}>{otpError}</p> : null}
 
-            <button type="button" className={styles.primaryButton} onClick={handleVerifyOtp}>
-              Verify OTP
+            <button 
+              type="button" 
+              className={styles.primaryButton} 
+              onClick={handleVerifyOtp}
+              disabled={isVerifying}
+            >
+              {isVerifying ? 'Verifying OTP...' : 'Verify OTP'}
             </button>
 
             <div className={styles.inlineActions}>
-              <button type="button" className={styles.textButton} onClick={() => setStep('mobile')}>
+              <button 
+                type="button" 
+                className={styles.textButton} 
+                onClick={() => setStep('mobile')}
+                disabled={isVerifying || isSending}
+              >
                 Change Number
               </button>
-              <button type="button" className={styles.textButton} onClick={handleResend} disabled={resendTimer > 0}>
+              <button 
+                type="button" 
+                className={styles.textButton} 
+                onClick={handleResend} 
+                disabled={resendTimer > 0 || isSending}
+              >
                 {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend OTP'}
               </button>
             </div>

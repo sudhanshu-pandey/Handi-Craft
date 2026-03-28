@@ -1,4 +1,5 @@
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react'
+import api from '../services/api'
 
 export type Address = {
   id: string
@@ -26,38 +27,19 @@ type AuthContextValue = {
   login: (mobile: string) => void
   logout: () => void
   updateProfile: (profile: Partial<UserProfile>) => void
+  sendOTP: (phone: string) => Promise<any>
+  verifyOTP: (phone: string, otp: string) => Promise<any>
+  isLoading: boolean
+  error: string | null
 }
 
-const DEFAULT_ADDRESSES: Address[] = [
-  {
-    id: '1',
-    label: 'Home',
-    line1: '12, Rajpur Road',
-    line2: 'Near City Mall',
-    city: 'Dehradun',
-    state: 'Uttarakhand',
-    pincode: '248001',
-    isDefault: true,
-  },
-  {
-    id: '2',
-    label: 'Office',
-    line1: '5th Floor, Tower B, DLF Cyber City',
-    line2: 'Sector 24',
-    city: 'Gurugram',
-    state: 'Haryana',
-    pincode: '122002',
-    isDefault: false,
-  },
-]
-
 const buildDefaultProfile = (mobile: string): UserProfile => ({
-  name: 'Arjun Sharma',
-  email: 'arjun.sharma@gmail.com',
+  name: 'User',
+  email: '',
   mobile,
-  gender: 'Male',
-  dob: '1992-04-15',
-  addresses: DEFAULT_ADDRESSES,
+  gender: '',
+  dob: '',
+  addresses: [],
 })
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -65,15 +47,63 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const sendOTP = useCallback(async (phone: string) => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const result = await api.sendOTP(phone)
+      return result
+    } catch (err: any) {
+      const message = err.message || 'Failed to send OTP'
+      setError(message)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  const verifyOTP = useCallback(async (phone: string, otp: string) => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const result = await api.verifyOTP(phone, otp)
+      
+      if (result.accessToken) {
+        api.setToken(result.accessToken)
+        setUserProfile(buildDefaultProfile(phone))
+        setIsLoggedIn(true)
+      }
+      
+      return result
+    } catch (err: any) {
+      const message = err.message || 'Failed to verify OTP'
+      setError(message)
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
   const login = useCallback((mobile: string) => {
     setUserProfile(buildDefaultProfile(mobile))
     setIsLoggedIn(true)
   }, [])
 
-  const logout = useCallback(() => {
-    setIsLoggedIn(false)
-    setUserProfile(null)
+  const logout = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      await api.logout()
+    } catch (err) {
+      console.error('Logout error:', err)
+    } finally {
+      setIsLoggedIn(false)
+      setUserProfile(null)
+      setError(null)
+      setIsLoading(false)
+    }
   }, [])
 
   const updateProfile = useCallback((patch: Partial<UserProfile>) => {
@@ -81,7 +111,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, userProfile, login, logout, updateProfile }}>
+    <AuthContext.Provider
+      value={{
+        isLoggedIn,
+        userProfile,
+        login,
+        logout,
+        updateProfile,
+        sendOTP,
+        verifyOTP,
+        isLoading,
+        error,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )
