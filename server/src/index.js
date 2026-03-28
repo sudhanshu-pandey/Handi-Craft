@@ -10,6 +10,8 @@ import userRouter from "./routes/user.route.js";
 import categoryRouter from "./routes/category.route.js";
 import orderRouter from "./routes/order.route.js";
 import reviewRouter from "./routes/review.route.js";
+import wishlistRouter from "./routes/wishlist.route.js";
+import paymentRouter from "./routes/payment.route.js";
 
 dotenv.config();
 
@@ -31,6 +33,8 @@ app.use("/api/user", userRouter);
 app.use("/api/categories", categoryRouter);
 app.use("/api/orders", orderRouter);
 app.use("/api/reviews", reviewRouter);
+app.use("/api/wishlist", wishlistRouter);
+app.use("/api/payments", paymentRouter);
 
 // Server
 const PORT = process.env.PORT || 5000;
