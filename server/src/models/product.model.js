@@ -2,11 +2,23 @@ import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  description: String,
+  description: { type: String },
   price: { type: Number, required: true },
-  image: String,
-  category: String,
-  // Add more fields as needed
+  originalPrice: { type: Number },
+  image: { type: String },
+  images: [{ type: String }],
+  category: { type: String, required: true },
+  rating: { type: Number, default: 4.5, min: 0, max: 5 },
+  reviewCount: { type: Number, default: 0 },
+  stock: { type: Number, default: 50 },
+  artisanInfo: {
+    name: { type: String },
+    region: { type: String },
+    craftType: { type: String }
+  },
+  tags: [{ type: String }],
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
 });
 
 export default mongoose.model("Product", productSchema);

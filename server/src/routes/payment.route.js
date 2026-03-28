@@ -3,13 +3,16 @@ import paymentController from "../controllers/payment.controller.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 const router = express.Router();
 
-// Initialize payment
+// Validate coupon code
+router.post("/validate-coupon", paymentController.validateCoupon);
+
+// Process payment / Create order
+router.post("/process", authMiddleware, paymentController.processPayment);
+
+// Initialize payment for gateway
 router.post("/initialize", authMiddleware, paymentController.initializePayment);
 
 // Verify payment
-router.post("/verify", paymentController.verifyPayment);
-
-// Get payment details
-router.get("/:paymentId", authMiddleware, paymentController.getPaymentDetails);
+router.post("/verify", authMiddleware, paymentController.verifyPayment);
 
 export default router;

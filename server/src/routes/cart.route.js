@@ -1,4 +1,5 @@
 
+
 import express from "express";
 import cartController from "../controllers/cart.controller.js";
 import authMiddleware from "../middleware/authMiddleware.js";
@@ -8,15 +9,18 @@ const router = express.Router();
 router.get('/', authMiddleware, cartController.getCart);
 
 // Add product to cart
-router.post('/add', authMiddleware, cartController.addToCart);
+router.post('/', authMiddleware, cartController.addToCart);
 
 // Update cart item quantity
-router.put('/update', authMiddleware, cartController.updateCartQuantity);
+router.put('/', authMiddleware, cartController.updateCartQuantity);
+
+// Toggle save for later
+router.post('/save-for-later', authMiddleware, cartController.toggleSaveForLater);
 
 // Remove product from cart
-router.delete('/remove/:productId', authMiddleware, cartController.removeFromCart);
+router.delete('/:productId', authMiddleware, cartController.removeFromCart);
 
 // Clear cart
-router.delete('/clear', authMiddleware, cartController.clearCart);
+router.post('/clear', authMiddleware, cartController.clearCart);
 
 export default router;

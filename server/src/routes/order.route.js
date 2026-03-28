@@ -3,8 +3,16 @@ import orderController from "../controllers/order.controller.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 const router = express.Router();
 
-router.post("/", authMiddleware, orderController.placeOrder);
+// Get all orders for user
 router.get("/", authMiddleware, orderController.getOrders);
-router.get("/:id", authMiddleware, orderController.getOrderDetails);
+
+// Get single order details
+router.get("/:orderId", authMiddleware, orderController.getOrderDetails);
+
+// Update order status (admin)
+router.put("/:orderId/status", authMiddleware, orderController.updateOrderStatus);
+
+// Cancel order
+router.post("/:orderId/cancel", authMiddleware, orderController.cancelOrder);
 
 export default router;

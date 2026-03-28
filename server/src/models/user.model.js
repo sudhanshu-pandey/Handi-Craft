@@ -1,5 +1,17 @@
 import mongoose from "mongoose";
 
+const addressSchema = new mongoose.Schema({
+    _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() },
+    label: { type: String }, // Home, Office, etc
+    line1: { type: String, required: true },
+    line2: { type: String },
+    city: { type: String, required: true },
+    state: { type: String, required: true },
+    pincode: { type: String, required: true },
+    landmark: { type: String },
+    isDefault: { type: Boolean, default: false }
+});
+
 const userSchema = new mongoose.Schema({
     phone: {
         type: String,
@@ -10,18 +22,7 @@ const userSchema = new mongoose.Schema({
     email: { type: String, unique: true, sparse: true },
     gender: { type: String, enum: ["male", "female", "other"] },
     dob: { type: Date },
-    addresses: [
-        {
-            label: { type: String }, // e.g. Home, Work
-            addressLine1: { type: String, required: true },
-            addressLine2: { type: String },
-            city: { type: String, required: true },
-            state: { type: String, required: true },
-            postalCode: { type: String, required: true },
-            country: { type: String, required: true },
-            isDefault: { type: Boolean, default: false }
-        }
-    ],
+    addresses: [addressSchema],
     isVerified: {
         type: Boolean,
         default: false
@@ -36,9 +37,12 @@ const userSchema = new mongoose.Schema({
     cart: [
         {
             product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
-            quantity: { type: Number, default: 1 }
+            quantity: { type: Number, default: 1 },
+            savedForLater: { type: Boolean, default: false }
         }
-    ]
+    ],
+    wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
+    recentlyViewed: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }]
 }, { timestamps: true });
 
 const User = mongoose.model("User", userSchema);

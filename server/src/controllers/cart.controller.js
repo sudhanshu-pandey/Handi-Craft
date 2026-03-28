@@ -15,11 +15,12 @@ const addToCart = async (req, res) => {
     if (!user) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: 'User not found.' });
     const product = await Product.findById(productId);
     if (!product) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: 'Product not found.' });
-    const cartItem = user.cart.find(item => item.product.toString() === productId);
+    
+    const cartItem = user.cart.find(item => item.product.toString() === productId && !item.savedForLater);
     if (cartItem) {
       cartItem.quantity += quantity;
     } else {
-      user.cart.push({ product: productId, quantity });
+      user.cart.push({ product: productId, quantity, savedForLater: false });
     }
     await user.save();
     const populatedCart = await user.populate('cart.product');
@@ -34,8 +35,19 @@ const getCart = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).populate('cart.product');
     if (!user) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: 'User not found.' });
-    const total = user.cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-    res.json({ cart: user.cart, total, itemCount: user.cart.length });
+    
+    const activeCart = user.cart.filter(item => !item.savedForLater);
+    const savedItems = user.cart.filter(item => item.savedForLater);
+    
+    const total = activeCart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+    
+    res.json({ 
+      cart: activeCart, 
+      savedItems, 
+      total, 
+      itemCount: activeCart.length,
+      savedCount: savedItems.length
+    });
   } catch (err) {
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: 'Server error', error: err.message });
   }
@@ -45,7 +57,7 @@ const getCart = async (req, res) => {
 const updateCartQuantity = async (req, res) => {
   try {
     const { productId, quantity } = req.body;
-    if (!productId || !quantity) {
+    if (!productId || quantity === undefined) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Product ID and quantity are required.' });
     }
     const user = await User.findById(req.user.id);
@@ -67,12 +79,36 @@ const updateCartQuantity = async (req, res) => {
   }
 };
 
+// Toggle save for later
+const toggleSaveForLater = async (req, res) => {
+  try {
+    const { productId, savedForLater } = req.body;
+    if (!productId || savedForLater === undefined) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Product ID and savedForLater flag are required.' });
+    }
+    
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: 'User not found.' });
+    
+    const cartItem = user.cart.find(item => item.product.toString() === productId);
+    if (!cartItem) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: 'Product not in cart.' });
+    
+    cartItem.savedForLater = savedForLater;
+    await user.save();
+    const populatedCart = await user.populate('cart.product');
+    res.json({ message: 'Cart item updated.', cart: populatedCart.cart });
+  } catch (err) {
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: 'Server error', error: err.message });
+  }
+};
+
 // Remove product from cart
 const removeFromCart = async (req, res) => {
   try {
+    const { productId } = req.params;
     const user = await User.findById(req.user.id);
     if (!user) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: 'User not found.' });
-    user.cart = user.cart.filter(item => item.product.toString() !== req.params.productId);
+    user.cart = user.cart.filter(item => item.product.toString() !== productId);
     await user.save();
     const populatedCart = await user.populate('cart.product');
     res.json({ message: 'Product removed from cart.', cart: populatedCart.cart });
@@ -98,6 +134,7 @@ export default {
   addToCart,
   getCart,
   updateCartQuantity,
+  toggleSaveForLater,
   removeFromCart,
   clearCart
 };

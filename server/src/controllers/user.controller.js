@@ -38,7 +38,7 @@ const addAddress = async (req, res) => {
     if (!user) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "User not found" });
     user.addresses.push(address);
     await user.save();
-    res.status(HTTP_STATUS.CREATED).json({ addresses: user.addresses });
+    res.status(HTTP_STATUS.CREATED).json({ address: user.addresses[user.addresses.length - 1], addresses: user.addresses });
   } catch (err) {
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Server error", error: err.message });
   }
@@ -51,9 +51,11 @@ const updateAddress = async (req, res) => {
     const update = req.body;
     const user = await User.findById(req.user.id);
     if (!user) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "User not found" });
-    const addr = user.addresses.id(addressId);
-    if (!addr) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Address not found" });
-    Object.assign(addr, update);
+    
+    const addrIndex = user.addresses.findIndex(a => a._id.toString() === addressId);
+    if (addrIndex === -1) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Address not found" });
+    
+    user.addresses[addrIndex] = { ...user.addresses[addrIndex].toObject(), ...update };
     await user.save();
     res.json({ addresses: user.addresses });
   } catch (err) {
@@ -66,12 +68,12 @@ const deleteAddress = async (req, res) => {
   try {
     const { addressId } = req.params;
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "User not found" });
     user.addresses = user.addresses.filter(addr => addr._id.toString() !== addressId);
     await user.save();
     res.json({ addresses: user.addresses });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Server error", error: err.message });
   }
 };
 
@@ -79,10 +81,10 @@ const deleteAddress = async (req, res) => {
 const listAddresses = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "User not found" });
     res.json({ addresses: user.addresses });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Server error", error: err.message });
   }
 };
 
