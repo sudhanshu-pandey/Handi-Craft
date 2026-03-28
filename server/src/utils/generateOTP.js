@@ -1,3 +1,7 @@
+import { OTP_CONFIG } from "../config/constants.js";
+
 export const generateOTP = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  const min = Math.pow(10, OTP_CONFIG.LENGTH - 1);
+  const max = Math.pow(10, OTP_CONFIG.LENGTH) - 1;
+  return Math.floor(min + Math.random() * (max - min + 1)).toString();
 };

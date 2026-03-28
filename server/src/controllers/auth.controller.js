@@ -2,16 +2,17 @@ import User from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 import { generateOTP } from "../utils/generateOTP.js";
 import { sendSMSOtp, sendWhatsAppOtp } from "../utils/sendOTP.js";
+import { JWT_CONFIG, AUTH_MESSAGES, HTTP_STATUS, OTP_CONFIG } from "../config/constants.js";
 
 const generateAccessToken = (user) => {
-  return jwt.sign({ id: user._id, phone: user.phone }, process.env.JWT_SECRET, {
-    expiresIn: "15m",
+  return jwt.sign({ id: user._id, phone: user.phone }, JWT_CONFIG.SECRET, {
+    expiresIn: JWT_CONFIG.ACCESS_TOKEN_EXPIRES_IN,
   });
 };
 
 const generateRefreshToken = (user) => {
-  return jwt.sign({ id: user._id }, process.env.JWT_REFRESH_SECRET, {
-    expiresIn: "30d",
+  return jwt.sign({ id: user._id }, JWT_CONFIG.REFRESH_SECRET, {
+    expiresIn: JWT_CONFIG.REFRESH_TOKEN_EXPIRES_IN,
   });
 };
 
@@ -27,7 +28,7 @@ export const sendOTP = async (req, res) => {
 
     const otp = generateOTP();
     user.otp = otp;
-    user.otpExpires = Date.now() + 5 * 60 * 1000;
+    user.otpExpires = Date.now() + OTP_CONFIG.EXPIRY_TIME;
 
     await user.save();
 
@@ -36,10 +37,10 @@ export const sendOTP = async (req, res) => {
 
     console.log("OTP:", otp);
 
-    res.json({ message: "OTP sent successfully" });
+    res.json({ message: AUTH_MESSAGES.OTP_SENT });
   } catch (error) {
     console.log(error);
-    res.status(500).json({ message: error.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: error.message });
   }
 };
 
@@ -50,15 +51,15 @@ export const verifyOTP = async (req, res) => {
     const user = await User.findOne({ phone });
 
     if (!user) {
-      return res.status(400).json({ message: "User not found" });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: AUTH_MESSAGES.USER_NOT_FOUND });
     }
 
     if (user.otp !== otp) {
-      return res.status(400).json({ message: "Invalid OTP" });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: AUTH_MESSAGES.INVALID_OTP });
     }
 
     if (user.otpExpires < Date.now()) {
-      return res.status(400).json({ message: "OTP expired" });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: AUTH_MESSAGES.OTP_EXPIRED });
     }
 
     user.isVerified = true;
@@ -72,12 +73,12 @@ export const verifyOTP = async (req, res) => {
     await user.save();
 
     res.json({
-      message: "Login successful",
+      message: AUTH_MESSAGES.LOGIN_SUCCESS,
       accessToken,
       refreshToken,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: error.message });
   }
 };
 
@@ -90,7 +91,7 @@ export const logout = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({ message: "Invalid token" });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: AUTH_MESSAGES.INVALID_TOKEN });
     }
 
     user.refreshTokens = user.refreshTokens.filter(
@@ -99,8 +100,8 @@ export const logout = async (req, res) => {
 
     await user.save();
 
-    res.json({ message: "Logged out successfully" });
+    res.json({ message: AUTH_MESSAGES.LOGOUT_SUCCESS });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: error.message });
   }
 };

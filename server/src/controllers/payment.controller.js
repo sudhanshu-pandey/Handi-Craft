@@ -1,17 +1,18 @@
 import Payment from "../models/payment.model.js";
 import Order from "../models/order.model.js";
+import { HTTP_STATUS, PAYMENT_MESSAGES } from "../config/constants.js";
 
 // Initialize payment (create payment record)
 const initializePayment = async (req, res) => {
   try {
     const { orderId, amount, paymentMethod } = req.body;
     if (!orderId || !amount || !paymentMethod) {
-      return res.status(400).json({ message: "Order ID, amount, and payment method required" });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Order ID, amount, and payment method required" });
     }
     
     const order = await Order.findById(orderId);
-    if (!order) return res.status(404).json({ message: "Order not found" });
-    if (order.user.toString() !== req.user.id) return res.status(403).json({ message: "Unauthorized" });
+    if (!order) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: PAYMENT_MESSAGES.PAYMENT_NOT_FOUND });
+    if (order.user.toString() !== req.user.id) return res.status(HTTP_STATUS.FORBIDDEN).json({ message: "Unauthorized" });
     
     const payment = new Payment({
       order: orderId,
@@ -24,8 +25,8 @@ const initializePayment = async (req, res) => {
     
     // TODO: Integrate with Razorpay/Stripe to create payment intent
     
-    res.status(201).json({
-      message: "Payment initialized",
+    res.status(HTTP_STATUS.CREATED).json({
+      message: PAYMENT_MESSAGES.PAYMENT_INITIALIZED,
       payment: {
         _id: payment._id,
         amount,
@@ -35,7 +36,7 @@ const initializePayment = async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Server error", error: err.message });
   }
 };
 
@@ -45,7 +46,7 @@ const verifyPayment = async (req, res) => {
     const { paymentId, razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
     
     const payment = await Payment.findById(paymentId);
-    if (!payment) return res.status(404).json({ message: "Payment not found" });
+    if (!payment) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: PAYMENT_MESSAGES.PAYMENT_NOT_FOUND });
     
     // TODO: Verify signature with Razorpay/Stripe
     // For now, mark as success
@@ -58,9 +59,9 @@ const verifyPayment = async (req, res) => {
     // Update order status
     await Order.findByIdAndUpdate(payment.order, { paymentStatus: "success", status: "packed" });
     
-    res.json({ message: "Payment verified successfully" });
+    res.json({ message: PAYMENT_MESSAGES.PAYMENT_VERIFIED });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Server error", error: err.message });
   }
 };
 
@@ -68,12 +69,12 @@ const verifyPayment = async (req, res) => {
 const getPaymentDetails = async (req, res) => {
   try {
     const payment = await Payment.findById(req.params.paymentId).populate("order user");
-    if (!payment) return res.status(404).json({ message: "Payment not found" });
-    if (payment.user._id.toString() !== req.user.id) return res.status(403).json({ message: "Unauthorized" });
+    if (!payment) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: PAYMENT_MESSAGES.PAYMENT_NOT_FOUND });
+    if (payment.user._id.toString() !== req.user.id) return res.status(HTTP_STATUS.FORBIDDEN).json({ message: "Unauthorized" });
     
     res.json({ payment });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Server error", error: err.message });
   }
 };
 

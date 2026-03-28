@@ -1,5 +1,6 @@
 
 import Product from "../models/product.model.js";
+import { HTTP_STATUS } from "../config/constants.js";
 
 // Get all products (with pagination & sorting)
 const getAllProducts = async (req, res) => {
@@ -25,7 +26,7 @@ const getAllProducts = async (req, res) => {
       limit 
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: 'Server error', error: err.message });
   }
 };
 
@@ -33,10 +34,10 @@ const getAllProducts = async (req, res) => {
 const getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
-    if (!product) return res.status(404).json({ message: "Product not found" });
+    if (!product) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Product not found" });
     res.json({ product });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: 'Server error', error: err.message });
   }
 };
 
@@ -44,7 +45,7 @@ const getProductById = async (req, res) => {
 const searchProducts = async (req, res) => {
   try {
     const { query } = req.query;
-    if (!query) return res.status(400).json({ message: "Query parameter is required" });
+    if (!query) return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Query parameter is required" });
     const regex = new RegExp(query, "i");
     const products = await Product.find({
       $or: [
@@ -54,7 +55,7 @@ const searchProducts = async (req, res) => {
     });
     res.json({ products, total: products.length });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: 'Server error', error: err.message });
   }
 };
 
@@ -78,7 +79,7 @@ const getProductsByCategory = async (req, res) => {
       pages: Math.ceil(total / limit)
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: 'Server error', error: err.message });
   }
 };
 
@@ -104,7 +105,7 @@ const filterProducts = async (req, res) => {
     
     res.json({ products, total: products.length });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: 'Server error', error: err.message });
   }
 };
 
@@ -113,7 +114,7 @@ const createProduct = async (req, res) => {
   try {
     const { name, price, originalPrice, category, description, image, stock } = req.body;
     if (!name || !price || !category) {
-      return res.status(400).json({ message: 'Name, price, and category are required' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Name, price, and category are required' });
     }
     
     const product = new Product({
@@ -127,9 +128,9 @@ const createProduct = async (req, res) => {
     });
     await product.save();
     
-    res.status(201).json({ message: 'Product created', product });
+    res.status(HTTP_STATUS.CREATED).json({ message: 'Product created', product });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: 'Server error', error: err.message });
   }
 };
 
@@ -141,11 +142,11 @@ const updateProduct = async (req, res) => {
       req.body,
       { new: true, runValidators: true }
     );
-    if (!product) return res.status(404).json({ message: 'Product not found' });
+    if (!product) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: 'Product not found' });
     
     res.json({ message: 'Product updated', product });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: 'Server error', error: err.message });
   }
 };
 
@@ -153,11 +154,11 @@ const updateProduct = async (req, res) => {
 const deleteProduct = async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
-    if (!product) return res.status(404).json({ message: 'Product not found' });
+    if (!product) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: 'Product not found' });
     
     res.json({ message: 'Product deleted' });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: 'Server error', error: err.message });
   }
 };
 

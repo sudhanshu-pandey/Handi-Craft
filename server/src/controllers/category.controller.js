@@ -1,4 +1,5 @@
 import Category from "../models/category.model.js";
+import { HTTP_STATUS } from "../config/constants.js";
 
 // Get all categories
 const getAllCategories = async (req, res) => {
@@ -6,7 +7,7 @@ const getAllCategories = async (req, res) => {
     const categories = await Category.find();
     res.json({ categories });
   } catch (err) {
-    res.status(500).json({ message: "Server error", error: err.message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Server error", error: err.message });
   }
 };
 
