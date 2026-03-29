@@ -54,6 +54,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       setIsLoading(true)
       setError(null)
+      
+      // Validate phone number format
+      if (!phone || phone.length < 10) {
+        const error = new Error('Invalid phone number format')
+        setError(error.message)
+        throw error
+      }
+      
       const result = await api.sendOTP(phone)
       return result
     } catch (err: any) {
@@ -95,9 +103,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = useCallback(async () => {
     try {
       setIsLoading(true)
+      // Clear token first to prevent any ongoing requests
+      api.clearToken()
+      // Then notify server
       await api.logout()
     } catch (err) {
       console.error('Logout error:', err)
+      // Still clear local state even if server call fails
     } finally {
       setIsLoggedIn(false)
       setUserProfile(null)

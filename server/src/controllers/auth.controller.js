@@ -4,6 +4,9 @@ import { generateOTP } from "../utils/generateOTP.js";
 import { sendSMSOtp, sendWhatsAppOtp } from "../utils/sendOTP.js";
 import { JWT_CONFIG, AUTH_MESSAGES, HTTP_STATUS, OTP_CONFIG } from "../config/constants.js";
 
+// Phone validation regex (E.164 format)
+const PHONE_REGEX = /^\+?[1-9]\d{1,14}$/;
+
 const generateAccessToken = (user) => {
   return jwt.sign({ id: user._id, phone: user.phone }, JWT_CONFIG.SECRET, {
     expiresIn: JWT_CONFIG.ACCESS_TOKEN_EXPIRES_IN,
@@ -16,9 +19,26 @@ const generateRefreshToken = (user) => {
   });
 };
 
+const validatePhone = (phone) => {
+  return PHONE_REGEX.test(phone.replace(/\s/g, ''));
+};
+
+const validateOTP = (otp) => {
+  return /^\d{6}$/.test(otp);
+};
+
 export const sendOTP = async (req, res) => {
   try {
     const { phone } = req.body;
+
+    // Validate phone number
+    if (!phone) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Phone number is required" });
+    }
+
+    if (!validatePhone(phone)) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Invalid phone number format" });
+    }
 
     let user = await User.findOne({ phone });
 
@@ -35,7 +55,7 @@ export const sendOTP = async (req, res) => {
     await sendSMSOtp(phone, otp);
     await sendWhatsAppOtp(phone, otp);
 
-    console.log("OTP:", otp);
+    console.log("OTP:", otp); // For testing only - remove in production
 
     res.json({ message: AUTH_MESSAGES.OTP_SENT });
   } catch (error) {
@@ -47,6 +67,19 @@ export const sendOTP = async (req, res) => {
 export const verifyOTP = async (req, res) => {
   try {
     const { phone, otp } = req.body;
+
+    // Validate inputs
+    if (!phone || !otp) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Phone and OTP are required" });
+    }
+
+    if (!validatePhone(phone)) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Invalid phone number format" });
+    }
+
+    if (!validateOTP(otp)) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Invalid OTP format" });
+    }
 
     const user = await User.findOne({ phone });
 
@@ -86,19 +119,21 @@ export const logout = async (req, res) => {
   try {
     const { refreshToken } = req.body;
 
+    // If no refreshToken provided, just return success
+    if (!refreshToken) {
+      return res.json({ message: AUTH_MESSAGES.LOGOUT_SUCCESS });
+    }
+
     const user = await User.findOne({
       refreshTokens: refreshToken,
     });
 
-    if (!user) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: AUTH_MESSAGES.INVALID_TOKEN });
+    if (user) {
+      user.refreshTokens = user.refreshTokens.filter(
+        (token) => token !== refreshToken,
+      );
+      await user.save();
     }
-
-    user.refreshTokens = user.refreshTokens.filter(
-      (token) => token !== refreshToken,
-    );
-
-    await user.save();
 
     res.json({ message: AUTH_MESSAGES.LOGOUT_SUCCESS });
   } catch (error) {

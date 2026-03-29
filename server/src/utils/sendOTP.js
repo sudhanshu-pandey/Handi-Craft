@@ -9,7 +9,7 @@ export const sendSMSOtp = async (phone, otp) => {
     await client.messages.create({
         body: `Your OTP is ${otp}`,
         from: TWILIO_CONFIG.PHONE_NUMBER,
-        to: `+91${phone}`
+        to: phone  // Already has country code: +919801745388
     });
 };
 
@@ -17,6 +17,6 @@ export const sendWhatsAppOtp = async (phone, otp) => {
     await client.messages.create({
         body: `Your OTP is ${otp}`,
         from: `whatsapp:+14155238886`,
-        to: `whatsapp:+91${phone}`
+        to: `whatsapp:${phone}`  // Already has country code: +919801745388
     });
 };

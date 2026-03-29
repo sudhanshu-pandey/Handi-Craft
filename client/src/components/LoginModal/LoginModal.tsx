@@ -67,18 +67,27 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
   )
 
   const parsedPhoneNumber = useMemo(() => {
-    const normalizedMobile = mobile.replace(/\D/g, '')
+    if (!mobile) {
+      return undefined
+    }
 
+    const normalizedMobile = mobile.replace(/\D/g, '')
     if (!normalizedMobile) {
       return undefined
     }
 
     try {
-      return parsePhoneNumber(normalizedMobile, selectedCountryId)
+      // Build the international format number
+      // Extract country code without the + sign
+      const countryCodeWithoutPlus = selectedCountry.code.replace('+', '')
+      const internationalNumber = `+${countryCodeWithoutPlus}${normalizedMobile}`
+      
+      // Parse it to validate format
+      return parsePhoneNumber(internationalNumber)
     } catch {
       return undefined
     }
-  }, [mobile, selectedCountryId])
+  }, [mobile, selectedCountryId, selectedCountry])
 
   const resetState = () => {
     setAuthMethod('mobile')
@@ -311,7 +320,10 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
       return
     }
 
-    const phoneNumber = parsedPhoneNumber.number.replace(/\D/g, '')
+    // Build the clean international format: +CC + number (no formatting)
+    const normalizedMobile = mobile.replace(/\D/g, '')
+    const countryCodeWithoutPlus = selectedCountry.code.replace('+', '')
+    const phoneNumber = `+${countryCodeWithoutPlus}${normalizedMobile}`
     
     try {
       setIsSending(true)

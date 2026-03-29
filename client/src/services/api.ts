@@ -2,6 +2,8 @@ interface RequestOptions extends RequestInit {
   headers?: Record<string, string>;
 }
 
+const REQUEST_TIMEOUT = 30000; // 30 seconds
+
 class APIClient {
   private baseURL: string;
   private token: string | null;
@@ -23,6 +25,12 @@ class APIClient {
     localStorage.removeItem('accessToken');
   }
 
+  private createTimeoutPromise(): Promise<never> {
+    return new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Request timeout')), REQUEST_TIMEOUT)
+    );
+  }
+
   async request(endpoint: string, options: RequestOptions = {}): Promise<any> {
     const url = `${this.baseURL}${endpoint}`;
     const headers: Record<string, string> = {
@@ -35,13 +43,22 @@ class APIClient {
     }
 
     try {
-      const response = await fetch(url, {
+      const fetchPromise = fetch(url, {
         ...options,
         headers,
       });
 
+      // Race between fetch and timeout
+      const response = await Promise.race([fetchPromise, this.createTimeoutPromise()]);
+
+      // Handle 401 Unauthorized - token expired or invalid
+      if (response.status === 401) {
+        this.clearToken();
+        throw new Error('Session expired. Please login again.');
+      }
+
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({}));
         throw new Error(error.message || `HTTP ${response.status}`);
       }
 
@@ -54,9 +71,10 @@ class APIClient {
 
   // Auth endpoints
   sendOTP(phone: string) {
+    const payload = { phone };
     return this.request('/auth/send-otp', {
       method: 'POST',
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify(payload),
     });
   }
 
