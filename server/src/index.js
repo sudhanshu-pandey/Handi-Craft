@@ -23,7 +23,7 @@ const app = express();
 
 // CORS Configuration
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || "https://handi-craft-4.onrender.com",
+  origin: process.env.FRONTEND_URL || "https://handi-craft-frontend.onrender.com",
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization"],
