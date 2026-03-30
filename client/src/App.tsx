@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from './store/hooks'
 import { loadCart } from './store/slices/cartSlice'
-import { loadWishlist } from './store/slices/wishlistSlice'
+import { loadWishlist, addItem as addToWishlist } from './store/slices/wishlistSlice'
 import { loadCartFromLocalStorage, loadWishlistFromLocalStorage } from './store/middleware/cartPersistence'
 import api from './services/api'
 import TopHeader from './components/TopHeader/TopHeader.tsx'
@@ -23,6 +23,7 @@ const OrderTracking = lazy(() => import('./pages/OrderTracking.tsx'))
 function App() {
   const dispatch = useAppDispatch()
   const cartItems = useAppSelector((state) => state.cart.items)
+  const wishlistItems = useAppSelector((state) => state.wishlist.items)
 
   // Load cart and wishlist from localStorage on app start
   useEffect(() => {
@@ -37,20 +38,31 @@ function App() {
     }
   }, [dispatch])
 
+  // Sync saved items from cart to wishlist
+  useEffect(() => {
+    const cartData = loadCartFromLocalStorage()
+    const savedItemProductIds = cartData
+      .filter((item: any) => item.savedForLater)
+      .map((item: any) => item.productId)
+
+    // Add saved items to wishlist if not already there
+    savedItemProductIds.forEach((productId: number) => {
+      const isInWishlist = wishlistItems.some((item: any) => item.productId === productId)
+      if (!isInWishlist) {
+        dispatch(addToWishlist(productId))
+      }
+    })
+  }, [dispatch, wishlistItems])
+
   // Listen for login event and sync cart to database
   useEffect(() => {
     const handleUserLogin = async () => {
       try {
-        console.log('🔄 [App] User logged in - syncing cart to database')
         if (cartItems.length > 0) {
-          console.log(`📦 [App] Syncing ${cartItems.length} items to database`)
-          const response = await api.request('/cart/sync', {
+          await api.request('/cart/sync', {
             method: 'POST',
             body: JSON.stringify({ items: cartItems }),
           })
-          console.log('✅ [App] Cart synced successfully:', response)
-        } else {
-          console.log('ℹ️ [App] No items to sync')
         }
       } catch (error) {
         console.error('❌ [App] Cart sync failed:', error)

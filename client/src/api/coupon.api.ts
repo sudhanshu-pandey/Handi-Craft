@@ -43,9 +43,7 @@ export interface VerifyCouponResponse {
  */
 export const getAllCoupons = async (): Promise<CouponResponse[]> => {
   try {
-    console.log('🔵 [CouponAPI] Fetching all coupons from backend')
     const response = await api.request('/coupons')
-    console.log('🟢 [CouponAPI] Coupons fetched successfully:', response.data)
     return response.data || []
   } catch (error: any) {
     console.error('🔴 [CouponAPI] Failed to fetch coupons:', error.message)
@@ -65,7 +63,6 @@ export const verifyCoupon = async (
   orderAmount: number
 ): Promise<VerifyCouponResponse> => {
   try {
-    console.log('🔵 [CouponAPI] Verifying coupon:', code, 'for amount:', orderAmount)
     const response = await api.request('/coupons/verify', {
       method: 'POST',
       body: JSON.stringify({
@@ -73,7 +70,6 @@ export const verifyCoupon = async (
         orderAmount,
       }),
     })
-    console.log('🟢 [CouponAPI] Coupon verified successfully:', response)
     return response
   } catch (error: any) {
     console.error('🔴 [CouponAPI] Coupon verification failed:', error.message)
@@ -92,9 +88,7 @@ export const verifyCoupon = async (
  */
 export const getCouponByCode = async (code: string): Promise<CouponResponse | null> => {
   try {
-    console.log('🔵 [CouponAPI] Fetching coupon details:', code)
     const response = await api.request(`/coupons/${code}`)
-    console.log('🟢 [CouponAPI] Coupon details fetched:', response)
     return response.data || null
   } catch (error: any) {
     console.error('🔴 [CouponAPI] Failed to fetch coupon details:', error.message)

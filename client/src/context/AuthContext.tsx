@@ -62,7 +62,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (wasLoggedIn && profile) {
           setIsLoggedIn(true)
           setUserProfile(profile)
-          console.log('✅ [AuthContext] Restored login session on refresh')
         }
       }
     } catch (err) {
@@ -79,13 +78,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             // Auth was cleared in another tab (logout)
             setIsLoggedIn(false)
             setUserProfile(null)
-            console.log('✅ [AuthContext] Detected logout in another tab')
           } else {
             // Auth was set in another tab (login)
             const { isLoggedIn: newIsLoggedIn, profile } = JSON.parse(event.newValue)
             setIsLoggedIn(newIsLoggedIn)
             setUserProfile(profile)
-            console.log('✅ [AuthContext] Detected login in another tab')
           }
         } catch (err) {
           console.error('❌ [AuthContext] Error syncing auth across tabs:', err)
@@ -128,16 +125,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (result.accessToken) {
         api.setToken(result.accessToken)
-        const profile = buildDefaultProfile(phone)
-        setUserProfile(profile)
-        setIsLoggedIn(true)
         
-        // Persist to localStorage
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
-          isLoggedIn: true,
-          profile,
-        }))
-        console.log('✅ [AuthContext] Login session saved')
+        // Fetch actual user profile from database
+        try {
+          const profileResponse = await api.getUserProfile()
+          const dbProfile = profileResponse.user
+          
+          const profile: UserProfile = {
+            name: dbProfile.name || 'User',
+            email: dbProfile.email || '',
+            mobile: dbProfile.phone || phone,
+            gender: dbProfile.gender || '',
+            dob: dbProfile.dob || '',
+            addresses: dbProfile.addresses || [],
+          }
+          
+          setUserProfile(profile)
+          
+          // Persist to localStorage
+          localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+            isLoggedIn: true,
+            profile,
+          }))
+        } catch (profileErr) {
+          // If profile fetch fails, use default profile
+          console.warn('⚠️ [AuthContext] Could not fetch profile, using default:', profileErr)
+          const profile = buildDefaultProfile(phone)
+          setUserProfile(profile)
+          
+          localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+            isLoggedIn: true,
+            profile,
+          }))
+        }
+        
+        setIsLoggedIn(true)
         
         // Dispatch cart sync event so Redux can sync cart to database
         window.dispatchEvent(new CustomEvent('userLoggedIn', { detail: { phone } }))
@@ -163,7 +185,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       isLoggedIn: true,
       profile,
     }))
-    console.log('✅ [AuthContext] Login session saved')
   }, [])
 
   const logout = useCallback(async () => {
@@ -185,7 +206,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(false)
       // Remove auth from localStorage
       localStorage.removeItem(AUTH_STORAGE_KEY)
-      console.log('✅ [AuthContext] Logged out - auth state and cart cleared')
     }
   }, [])
 

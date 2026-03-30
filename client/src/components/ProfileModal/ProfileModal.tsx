@@ -4,6 +4,7 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { addItem, removeItem as removeFromCart } from '../../store/slices/cartSlice'
 import { removeItem as removeFromWishlist } from '../../store/slices/wishlistSlice'
 import { products } from '../../data/products'
+import api from '../../services/api'
 import styles from './ProfileModal.module.css'
 
 type Tab = 'profile' | 'addresses' | 'orders' | 'wishlist'
@@ -25,10 +26,35 @@ const AVATAR_INITIALS = (name: string) => {
 }
 
 const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
-  const { userProfile, logout } = useAuth()
+  const { userProfile, logout, updateProfile } = useAuth()
   const wishlistItems = useAppSelector((state) => state.wishlist.items)
   const [activeTab, setActiveTab] = useState<Tab>('profile')
   const modalRef = useRef<HTMLDivElement>(null)
+
+  // Fetch fresh user profile data when modal opens
+  useEffect(() => {
+    if (!isOpen) return
+
+    const fetchUserProfile = async () => {
+      try {
+        const response = await api.getUserProfile()
+        if (response.user) {
+          const dbProfile = response.user
+          updateProfile({
+            name: dbProfile.name || userProfile?.name || 'User',
+            email: dbProfile.email || userProfile?.email || '',
+            gender: dbProfile.gender || userProfile?.gender || '',
+            dob: dbProfile.dob || userProfile?.dob || '',
+          })
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error)
+        // Continue with existing profile if fetch fails
+      }
+    }
+
+    fetchUserProfile()
+  }, [isOpen, updateProfile, userProfile])
 
   useEffect(() => {
     if (!isOpen) return
@@ -127,41 +153,265 @@ const TAB_LABELS: Record<Tab, string> = {
   wishlist: 'Wishlist',
 }
 
-const ProfileTab = ({ profile, wishlistCount }: { profile: NonNullable<ReturnType<typeof useAuth>['userProfile']>, wishlistCount: number }) => (
-  <div className={styles.section}>
-    <h3 className={styles.sectionTitle}>Personal Details</h3>
-    <div className={styles.fieldGrid}>
-      <FieldRow label="Full Name" value={profile.name} icon="👤" />
-      <FieldRow label="Mobile" value={`+91 ${profile.mobile}`} icon="📱" />
-      <FieldRow label="Email" value={profile.email} icon="✉️" />
-      <FieldRow label="Gender" value={profile.gender} icon="⚧" />
-      <FieldRow label="Date of Birth" value={formatDob(profile.dob)} icon="🎂" />
-    </div>
+const ProfileTab = ({ profile, wishlistCount }: { profile: NonNullable<ReturnType<typeof useAuth>['userProfile']>, wishlistCount: number }) => {
+  const { updateProfile } = useAuth()
+  const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [editData, setEditData] = useState({
+    name: profile.name || '',
+    email: profile.email || '',
+    gender: profile.gender || '',
+    dob: profile.dob || '',
+  })
 
-    <div className={styles.statsRow}>
-      <div className={styles.statCard}>
-        <span className={styles.statNum}>3</span>
-        <span className={styles.statLabel}>Orders</span>
-      </div>
-      <div className={styles.statCard}>
-        <span className={styles.statNum}>{wishlistCount}</span>
-        <span className={styles.statLabel}>Wishlist</span>
-      </div>
-      <div className={styles.statCard}>
-        <span className={styles.statNum}>₹10,947</span>
-        <span className={styles.statLabel}>Total Spent</span>
-      </div>
-    </div>
+  // Sync editData with profile only when NOT editing (to avoid overwriting user input)
+  useEffect(() => {
+    if (!isEditing) {
+      setEditData({
+        name: profile.name || '',
+        email: profile.email || '',
+        gender: profile.gender || '',
+        dob: profile.dob || '',
+      })
+    }
+  }, [profile, isEditing])
 
-    <div className={styles.memberBadge}>
-      <span>🏅</span>
-      <div>
-        <strong>Silver Member</strong>
-        <p>Spend ₹4,053 more to reach Gold</p>
+  const handleInputChange = (field: string, value: string) => {
+    setEditData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+    // Clear error for this field when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({
+        ...prev,
+        [field]: ''
+      }))
+    }
+  }
+
+  const handleEditClick = () => {
+    // Ensure editData has the latest profile data before entering edit mode
+    setEditData({
+      name: profile.name || '',
+      email: profile.email || '',
+      gender: profile.gender || '',
+      dob: profile.dob || '',
+    })
+    setErrors({})
+    setIsEditing(true)
+  }
+
+  // Validation functions
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {}
+
+    // Validate full name (minimum 3 characters)
+    if (editData.name.trim().length < 3) {
+      newErrors.name = 'Full name must be at least 3 characters'
+    }
+
+    // Validate email (only if provided)
+    if (editData.email.trim().length > 0) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(editData.email)) {
+        newErrors.email = 'Please enter a valid email address'
+      }
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const formatMobileNumber = (mobile: string): string => {
+    // Remove all spaces and duplicates to get clean number
+    const cleanNumber = mobile.replace(/\s+/g, '').replace(/^\+91\+91/, '+91')
+    
+    // If it already has +91, keep it with one space; otherwise add +91
+    if (cleanNumber.startsWith('+91')) {
+      return `+91 ${cleanNumber.slice(3)}`
+    }
+    
+    // If no +91, add it
+    return `+91 ${cleanNumber}`
+  }
+
+  const handleSaveProfile = async () => {
+    if (!validateForm()) {
+      return
+    }
+
+    try {
+      setIsSaving(true)
+      const response = await api.request('/user/profile', {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: editData.name,
+          email: editData.email,
+          gender: editData.gender,
+          dob: editData.dob,
+        })
+      })
+
+      if (response.user) {
+        updateProfile({
+          name: response.user.name,
+          email: response.user.email,
+          gender: response.user.gender,
+          dob: response.user.dob,
+        })
+        setIsEditing(false)
+        setErrors({})
+      }
+    } catch (error) {
+      console.error('Error saving profile:', error)
+      alert('Failed to save profile. Please try again.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <div className={styles.section}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h3 className={styles.sectionTitle}>Personal Details</h3>
+        {!isEditing && (
+          <button 
+            type="button" 
+            className={styles.secondaryBtn}
+            onClick={handleEditClick}
+            style={{ fontSize: 12 }}
+          >
+            ✎ Edit
+          </button>
+        )}
+      </div>
+
+      {isEditing ? (
+        <div className={styles.fieldGrid}>
+          <div className={styles.editField}>
+            <label>Full Name</label>
+            <input
+              type="text"
+              value={editData.name}
+              onChange={(e) => handleInputChange('name', e.target.value)}
+              placeholder="Enter your full name"
+              className={`${styles.editInput} ${errors.name ? styles.editInputError : ''}`}
+            />
+            {errors.name && <span className={styles.errorMessage}>{errors.name}</span>}
+          </div>
+          <div className={styles.editField}>
+            <label>Email</label>
+            <input
+              type="email"
+              value={editData.email}
+              onChange={(e) => handleInputChange('email', e.target.value)}
+              placeholder="Enter your email"
+              className={`${styles.editInput} ${errors.email ? styles.editInputError : ''}`}
+            />
+            {errors.email && <span className={styles.errorMessage}>{errors.email}</span>}
+          </div>
+          <div className={styles.editField}>
+            <label>Gender</label>
+            <select
+              value={editData.gender}
+              onChange={(e) => handleInputChange('gender', e.target.value)}
+              className={styles.editInput}
+            >
+              <option value="">Select gender</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div className={styles.editField}>
+            <label>Date of Birth</label>
+            <input
+              type="date"
+              value={editData.dob ? new Date(editData.dob).toISOString().split('T')[0] : ''}
+              onChange={(e) => handleInputChange('dob', e.target.value)}
+              className={styles.editInput}
+            />
+          </div>
+          <div className={styles.editField}>
+            <label>Mobile (Not editable)</label>
+            <input
+              type="text"
+              value={formatMobileNumber(profile.mobile)}
+              disabled
+              className={styles.editInput}
+              style={{ backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className={styles.fieldGrid}>
+          <FieldRow label="Full Name" value={profile.name} icon="👤" />
+          <FieldRow label="Mobile" value={formatMobileNumber(profile.mobile)} icon="📱" />
+          <FieldRow label="Email" value={profile.email || '-'} icon="✉️" />
+          <FieldRow label="Gender" value={profile.gender || '-'} icon="⚧" />
+          <FieldRow label="Date of Birth" value={profile.dob ? formatDob(profile.dob) : '-'} icon="🎂" />
+        </div>
+      )}
+
+      {isEditing && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+          <button
+            type="button"
+            className={styles.primaryBtn}
+            onClick={handleSaveProfile}
+            disabled={isSaving}
+            style={{ flex: 1 }}
+          >
+            {isSaving ? '💾 Saving...' : '✓ Save Changes'}
+          </button>
+          <button
+            type="button"
+            className={styles.secondaryBtn}
+            onClick={() => {
+              setIsEditing(false)
+              setEditData({
+                name: profile.name || '',
+                email: profile.email || '',
+                gender: profile.gender || '',
+                dob: profile.dob || '',
+              })
+              setErrors({})
+            }}
+            disabled={isSaving}
+            style={{ flex: 1 }}
+          >
+            ✕ Cancel
+          </button>
+        </div>
+      )}
+
+      <div className={styles.statsRow}>
+        <div className={styles.statCard}>
+          <span className={styles.statNum}>3</span>
+          <span className={styles.statLabel}>Orders</span>
+        </div>
+        <div className={styles.statCard}>
+          <span className={styles.statNum}>{wishlistCount}</span>
+          <span className={styles.statLabel}>Wishlist</span>
+        </div>
+        <div className={styles.statCard}>
+          <span className={styles.statNum}>₹10,947</span>
+          <span className={styles.statLabel}>Total Spent</span>
+        </div>
+      </div>
+
+      <div className={styles.memberBadge}>
+        <span>🏅</span>
+        <div>
+          <strong>Silver Member</strong>
+          <p>Spend ₹4,053 more to reach Gold</p>
+        </div>
       </div>
     </div>
-  </div>
-)
+  )
+}
 
 const AddressesTab = ({ addresses }: { addresses: Address[] }) => (
   <div className={styles.section}>

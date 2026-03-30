@@ -19,9 +19,7 @@ import api from '../services/api'
  */
 export const addToCartAPI = async (payload: AddToCartPayload): Promise<CartResponse> => {
   try {
-    console.log('🔵 [CartAPI] Adding to cart:', payload)
     const response = await api.addToCart(payload.productId, payload.quantity)
-    console.log('🟢 [CartAPI] Add to cart success:', response)
     return response
   } catch (error: any) {
     console.error('🔴 [CartAPI] Add to cart failed:', error.message)
@@ -35,9 +33,7 @@ export const addToCartAPI = async (payload: AddToCartPayload): Promise<CartRespo
  */
 export const getCartAPI = async (): Promise<CartResponse> => {
   try {
-    console.log('🔵 [CartAPI] Fetching cart from backend')
     const response = await api.getCart()
-    console.log('🟢 [CartAPI] Cart fetched:', response)
     return response
   } catch (error: any) {
     console.error('🔴 [CartAPI] Get cart failed:', error.message)
@@ -54,9 +50,7 @@ export const updateCartQuantityAPI = async (
   payload: UpdateQuantityPayload
 ): Promise<CartResponse> => {
   try {
-    console.log('🔵 [CartAPI] Updating cart quantity:', payload)
     const response = await api.updateCartQuantity(payload.productId, payload.quantity)
-    console.log('🟢 [CartAPI] Update quantity success:', response)
     return response
   } catch (error: any) {
     console.error('🔴 [CartAPI] Update quantity failed:', error.message)
@@ -71,9 +65,7 @@ export const updateCartQuantityAPI = async (
  */
 export const removeFromCartAPI = async (productId: string | number): Promise<CartResponse> => {
   try {
-    console.log('🔵 [CartAPI] Removing from cart:', productId)
     const response = await api.removeFromCart(productId)
-    console.log('🟢 [CartAPI] Remove from cart success:', response)
     return response
   } catch (error: any) {
     console.error('🔴 [CartAPI] Remove from cart failed:', error.message)
@@ -89,13 +81,11 @@ export const removeFromCartAPI = async (productId: string | number): Promise<Car
  */
 export const syncCartAPI = async (payload: SyncCartPayload): Promise<CartResponse> => {
   try {
-    console.log('🔵 [CartAPI] Syncing cart with backend, items:', payload.items.length)
     // Note: This endpoint needs to be added to backend if not exists
     const response = await api.request('/cart/sync', {
       method: 'POST',
       body: JSON.stringify({ items: payload.items }),
     })
-    console.log('🟢 [CartAPI] Cart sync success:', response)
     return response
   } catch (error: any) {
     console.error('🔴 [CartAPI] Cart sync failed:', error.message)
@@ -114,9 +104,7 @@ export const toggleSaveForLaterAPI = async (
   savedForLater: boolean
 ): Promise<CartResponse> => {
   try {
-    console.log('🔵 [CartAPI] Toggling save for later:', productId, savedForLater)
     const response = await api.toggleSaveForLater(productId, savedForLater)
-    console.log('🟢 [CartAPI] Save for later success:', response)
     return response
   } catch (error: any) {
     console.error('🔴 [CartAPI] Save for later failed:', error.message)
@@ -130,9 +118,7 @@ export const toggleSaveForLaterAPI = async (
  */
 export const clearCartAPI = async (): Promise<CartResponse> => {
   try {
-    console.log('🔵 [CartAPI] Clearing entire cart')
     const response = await api.clearCart()
-    console.log('🟢 [CartAPI] Clear cart success:', response)
     return response
   } catch (error: any) {
     console.error('🔴 [CartAPI] Clear cart failed:', error.message)

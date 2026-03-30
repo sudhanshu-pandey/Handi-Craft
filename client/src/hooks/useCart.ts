@@ -90,7 +90,6 @@ export const useCart = (): UseCartState & UseCartActions => {
               savedItems: savedItems,
               itemCount: activeItems.length,
             }))
-            console.log('🔄 [useCart] Guest cart synced from another tab')
           } else {
             // Cart was cleared in another tab
             setState((prev) => ({
@@ -122,7 +121,6 @@ export const useCart = (): UseCartState & UseCartActions => {
           const result = await CartService.syncGuestCart()
 
           if (result.success) {
-            console.log('✅ [useCart] Cart synced successfully on login')
             // Refresh cart after sync
             const refreshResult = await CartService.getCart(true)
             if (refreshResult.success && refreshResult.data) {
@@ -145,7 +143,6 @@ export const useCart = (): UseCartState & UseCartActions => {
         }
       } else {
         // User logged out - clear cart state
-        console.log('🔴 [useCart] User logged out - clearing cart')
         setState((prev) => ({
           ...prev,
           items: [],

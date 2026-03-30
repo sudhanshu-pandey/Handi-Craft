@@ -32,12 +32,9 @@ export const AddToCartButton: React.FC<AddToCartButtonProps> = ({
       return;
     }
 
-    console.log(`🛒 Adding to cart: productId=${numericId}, quantity=1`);
-
     try {
       // CommerceContext addToCart doesn't return a result, it just updates state
       addToCart(numericId, 1);
-      console.log('✅ Successfully added to cart');
 
       // Show success message
       setShowSuccess(true);

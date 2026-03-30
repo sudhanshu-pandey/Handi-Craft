@@ -76,10 +76,8 @@ export const mergeCartItems = (guestItems: CartItem[], serverItems: CartItem[]):
     
     if (existing) {
       existing.quantity += guestItem.quantity
-      console.log(`🔄 [CartStorage] Merged duplicate: ${guestItem.productId}, total qty: ${existing.quantity}`)
     } else {
       merged.push(guestItem)
-      console.log(`✅ [CartStorage] Added new item from guest cart: ${guestItem.productId}`)
     }
   }
   

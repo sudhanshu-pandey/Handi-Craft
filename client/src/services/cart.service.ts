@@ -45,7 +45,6 @@ export class CartService {
       }
 
       if (isLoggedIn) {
-        console.log('👤 [CartService] User logged in - calling API')
         const response = await addToCartAPI({ productId, quantity })
         return {
           success: true,
@@ -53,7 +52,6 @@ export class CartService {
           timestamp: new Date().toISOString(),
         }
       } else {
-        console.log('👥 [CartService] User is guest - saving to localStorage')
         const localCart = getLocalCart()
         const existingItem = localCart.find(
           (item) => String(item.productId) === String(productId)
@@ -61,7 +59,6 @@ export class CartService {
 
         if (existingItem) {
           existingItem.quantity += quantity
-          console.log(`🔄 [CartService] Updated quantity for ${productId}: ${existingItem.quantity}`)
         } else {
           const newItem: CartItem = {
             productId,
@@ -70,7 +67,6 @@ export class CartService {
           }
           if (isValidCartItem(newItem)) {
             localCart.push(normalizeCartItem(newItem))
-            console.log(`✅ [CartService] Added new item: ${productId}`)
           } else {
             return {
               success: false,
@@ -114,7 +110,6 @@ export class CartService {
   static async getCart(isLoggedIn: boolean): Promise<CartOperationResult> {
     try {
       if (isLoggedIn) {
-        console.log('👤 [CartService] Getting cart from API')
         const response = await getCartAPI()
         return {
           success: true,
@@ -122,7 +117,6 @@ export class CartService {
           timestamp: new Date().toISOString(),
         }
       } else {
-        console.log('👥 [CartService] Getting cart from localStorage')
         const localCart = getLocalCart()
         const savedItems = localCart.filter((item) => item.savedForLater)
         const activeCart = localCart.filter((item) => !item.savedForLater)
@@ -166,7 +160,6 @@ export class CartService {
       }
 
       if (isLoggedIn) {
-        console.log('👤 [CartService] Updating quantity via API')
         const response = await updateCartQuantityAPI({ productId, quantity })
         return {
           success: true,
@@ -174,7 +167,6 @@ export class CartService {
           timestamp: new Date().toISOString(),
         }
       } else {
-        console.log('👥 [CartService] Updating quantity in localStorage')
         const localCart = getLocalCart()
         const item = localCart.find((item) => String(item.productId) === String(productId))
 
@@ -224,7 +216,6 @@ export class CartService {
   ): Promise<CartOperationResult> {
     try {
       if (isLoggedIn) {
-        console.log('👤 [CartService] Removing item via API')
         const response = await removeFromCartAPI(productId)
         return {
           success: true,
@@ -232,7 +223,6 @@ export class CartService {
           timestamp: new Date().toISOString(),
         }
       } else {
-        console.log('👥 [CartService] Removing item from localStorage')
         const localCart = getLocalCart()
         const filtered = localCart.filter((item) => String(item.productId) !== String(productId))
 
@@ -276,23 +266,19 @@ export class CartService {
    */
   static async syncGuestCart(): Promise<CartOperationResult> {
     try {
-      console.log('🔄 [CartService] Starting cart sync on login')
       const guestCart = getLocalCart()
 
       if (guestCart.length === 0) {
-        console.log('ℹ️ [CartService] No guest cart to sync')
         return {
           success: true,
           timestamp: new Date().toISOString(),
         }
       }
 
-      console.log(`🔄 [CartService] Syncing ${guestCart.length} items`)
       const response = await syncCartAPI({ items: guestCart })
 
       // Clear local cart after successful sync
       clearLocalCart()
-      console.log('✅ [CartService] Cart sync completed, localStorage cleared')
 
       return {
         success: true,
@@ -320,7 +306,6 @@ export class CartService {
   ): Promise<CartOperationResult> {
     try {
       if (isLoggedIn) {
-        console.log('👤 [CartService] Toggling save for later via API')
         const response = await toggleSaveForLaterAPI(productId, savedForLater)
         return {
           success: true,
@@ -328,7 +313,6 @@ export class CartService {
           timestamp: new Date().toISOString(),
         }
       } else {
-        console.log('👥 [CartService] Toggling save for later in localStorage')
         const localCart = getLocalCart()
         const item = localCart.find((item) => String(item.productId) === String(productId))
 
@@ -362,7 +346,6 @@ export class CartService {
   static async clearCart(isLoggedIn: boolean): Promise<CartOperationResult> {
     try {
       if (isLoggedIn) {
-        console.log('👤 [CartService] Clearing cart via API')
         const response = await clearCartAPI()
         return {
           success: true,
@@ -370,7 +353,6 @@ export class CartService {
           timestamp: new Date().toISOString(),
         }
       } else {
-        console.log('👥 [CartService] Clearing localStorage cart')
         clearLocalCart()
         return {
           success: true,
@@ -392,9 +374,6 @@ export class CartService {
   static handleLogout(persistCart: boolean = true): void {
     if (!persistCart) {
       clearLocalCart()
-      console.log('🔴 [CartService] Cart cleared on logout')
-    } else {
-      console.log('✅ [CartService] Cart persisted for next guest session')
     }
   }
 }

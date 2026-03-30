@@ -4,7 +4,14 @@ import { JWT_CONFIG, AUTH_MESSAGES, HTTP_STATUS } from "../config/constants.js";
 
 const authMiddleware = async (req, res, next) => {
   try {
-    const token = req.headers.authorization;
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: AUTH_MESSAGES.NO_TOKEN });
+    }
+
+    // Extract token from "Bearer <token>" format
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
 
     if (!token) {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: AUTH_MESSAGES.NO_TOKEN });
