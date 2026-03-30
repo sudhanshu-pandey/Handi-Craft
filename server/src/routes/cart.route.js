@@ -23,4 +23,7 @@ router.delete('/:productId', authMiddleware, cartController.removeFromCart);
 // Clear cart
 router.post('/clear', authMiddleware, cartController.clearCart);
 
+// Sync guest cart with user cart (called on login)
+router.post('/sync', authMiddleware, cartController.syncCart);
+
 export default router;

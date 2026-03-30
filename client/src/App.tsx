@@ -1,5 +1,9 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { useAppDispatch, useAppSelector } from './store/hooks'
+import { loadCart } from './store/slices/cartSlice'
+import { loadCartFromLocalStorage } from './store/middleware/cartPersistence'
+import api from './services/api'
 import TopHeader from './components/TopHeader/TopHeader.tsx'
 import Navbar from './components/Navbar/Navbar.tsx'
 import Header from './components/Header/Header.tsx'
@@ -17,6 +21,41 @@ const OrderTracking = lazy(() => import('./pages/OrderTracking.tsx'))
 const Wishlist = lazy(() => import('./pages/Wishlist.tsx'))
 
 function App() {
+  const dispatch = useAppDispatch()
+  const cartItems = useAppSelector((state) => state.cart.items)
+
+  // Load cart from localStorage on app start
+  useEffect(() => {
+    const cartData = loadCartFromLocalStorage()
+    if (cartData.length > 0) {
+      dispatch(loadCart(cartData))
+    }
+  }, [dispatch])
+
+  // Listen for login event and sync cart to database
+  useEffect(() => {
+    const handleUserLogin = async () => {
+      try {
+        console.log('🔄 [App] User logged in - syncing cart to database')
+        if (cartItems.length > 0) {
+          console.log(`📦 [App] Syncing ${cartItems.length} items to database`)
+          const response = await api.request('/cart/sync', {
+            method: 'POST',
+            body: JSON.stringify({ items: cartItems }),
+          })
+          console.log('✅ [App] Cart synced successfully:', response)
+        } else {
+          console.log('ℹ️ [App] No items to sync')
+        }
+      } catch (error) {
+        console.error('❌ [App] Cart sync failed:', error)
+      }
+    }
+
+    window.addEventListener('userLoggedIn', handleUserLogin)
+    return () => window.removeEventListener('userLoggedIn', handleUserLogin)
+  }, [cartItems])
+
   return (
     <Router>
       <div className="app">

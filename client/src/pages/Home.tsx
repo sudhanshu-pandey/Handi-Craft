@@ -4,8 +4,7 @@ import BenefitsSection from '../components/BenefitsSection/BenefitsSection'
 import TestimonialCarousel from '../components/TestimonialCarousel/TestimonialCarousel'
 import ProductCard from '../components/ProductCard/ProductCard'
 import styles from './pages.module.css'
-import { products as allProducts, categories as allCategories, Product } from '../data/products' // Update path if needed
-import { useCommerce } from '../context/CommerceContext'
+import { products as allProducts, categories as allCategories, Product } from '../data/products'
 
 interface Testimonial {
   id: number
@@ -17,7 +16,6 @@ interface Testimonial {
 }
 
 const Home = () => {
-  const { addToCart, trackEvent } = useCommerce()
   const [products] = useState(() => allProducts.slice(0, 6))
   const [categories] = useState(() => allCategories)
 
@@ -78,11 +76,6 @@ const Home = () => {
     },
   ])
 
-  const handleAddToCart = (product: Product) => {
-    addToCart(product.id, 1)
-    trackEvent('added_to_cart', { productId: product.id, source: 'home' })
-  }
-
   return (
     <div>
       {/* Hero Section */}
@@ -108,7 +101,6 @@ const Home = () => {
               <ProductCard
                 key={product.id}
                 product={product}
-                onAddToCart={handleAddToCart}
               />
             ))}
           </div>

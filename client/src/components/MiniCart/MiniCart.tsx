@@ -1,29 +1,31 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { products } from '../../data/products'
-import { useCommerce } from '../../context/CommerceContext'
+import { useAppSelector, useAppDispatch } from '../../store/hooks'
+import { removeItem, type CartItem } from '../../store/slices/cartSlice'
 import { formatCurrency } from '../../utils/commerce'
 import styles from './MiniCart.module.css'
 
 const MiniCart = () => {
   const [isOpen, setIsOpen] = useState(false)
-  const { cart, removeFromCart } = useCommerce()
+  const dispatch = useAppDispatch()
+  const items = useAppSelector((state) => state.cart.items)
   const navigate = useNavigate()
 
   const activeItems = useMemo(
     () =>
-      cart
-        .filter((item) => !item.savedForLater)
-        .map((item) => {
+      items
+        .filter((item: CartItem) => !item.savedForLater)
+        .map((item: CartItem) => {
           const product = products.find((entry) => entry.id === item.productId)
           return product ? { product, quantity: item.quantity } : null
         })
-        .filter((item): item is { product: (typeof products)[number]; quantity: number } => item !== null),
-    [cart],
+        .filter((item: any): item is { product: (typeof products)[number]; quantity: number } => item !== null),
+    [items],
   )
 
-  const totalItems = activeItems.reduce((sum, item) => sum + item.quantity, 0)
-  const totalAmount = activeItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
+  const totalItems = activeItems.reduce((sum: number, item: any) => sum + item.quantity, 0)
+  const totalAmount = activeItems.reduce((sum: number, item: any) => sum + item.product.price * item.quantity, 0)
 
   const close = () => setIsOpen(false)
 
@@ -80,7 +82,7 @@ const MiniCart = () => {
             ) : (
               <>
                 <div className={styles.itemList}>
-                  {activeItems.slice(0, 5).map(({ product, quantity }) => (
+                  {activeItems.slice(0, 5).map(({ product, quantity }: { product: typeof products[0]; quantity: number }) => (
                     <div className={styles.item} key={product.id}>
                       <Link to={`/products/${product.id}`} onClick={close}>
                         <img src={product.image} alt={product.name} className={styles.itemImg} loading="lazy" />
@@ -93,7 +95,7 @@ const MiniCart = () => {
                       </div>
                       <div className={styles.itemRight}>
                         <strong className={styles.itemTotal}>{formatCurrency(product.price * quantity)}</strong>
-                        <button type="button" className={styles.removeBtn} onClick={() => removeFromCart(product.id)} aria-label={`Remove ${product.name}`}>✕</button>
+                        <button type="button" className={styles.removeBtn} onClick={() => dispatch(removeItem(product.id))} aria-label={`Remove ${product.name}`}>✕</button>
                       </div>
                     </div>
                   ))}

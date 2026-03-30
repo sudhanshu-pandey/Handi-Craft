@@ -102,7 +102,7 @@ export const verifyOTP = async (req, res) => {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    user.refreshTokens.push(refreshToken);
+    user.refreshToken = refreshToken;
     await user.save();
 
     res.json({
@@ -125,13 +125,11 @@ export const logout = async (req, res) => {
     }
 
     const user = await User.findOne({
-      refreshTokens: refreshToken,
+      refreshToken: refreshToken,
     });
 
     if (user) {
-      user.refreshTokens = user.refreshTokens.filter(
-        (token) => token !== refreshToken,
-      );
+      user.refreshToken = null;
       await user.save();
     }
 

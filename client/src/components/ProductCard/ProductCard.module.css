@@ -115,6 +115,40 @@
   margin: var(--spacing-sm) 0;
 }
 
+.buttonGroup {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-sm);
+  margin-top: auto;
+}
+
+.viewButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--secondary-color, #c8a882);
+  color: var(--text-on-primary);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+  min-height: 40px;
+}
+
+.viewButton:hover {
+  background-color: var(--secondary-dark, #b89968);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.viewButton:active {
+  transform: translateY(0);
+}
+
 .content button {
   margin-top: auto;
   width: 100%;

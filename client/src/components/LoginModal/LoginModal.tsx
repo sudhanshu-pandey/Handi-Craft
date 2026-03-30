@@ -282,6 +282,13 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
     }
   }
 
+  const handleMobileKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      handleSendOtp()
+    }
+  }
+
   const switchMethod = (method: 'mobile' | 'google') => {
     setAuthMethod(method)
     setStep('mobile')
@@ -365,6 +372,9 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
   const handleOtpKeyDown = (index: number, event: ReactKeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Backspace' && !otpDigits[index] && index > 0) {
       otpRefs.current[index - 1]?.focus()
+    } else if (event.key === 'Enter') {
+      event.preventDefault()
+      handleVerifyOtp()
     }
   }
 
@@ -511,6 +521,7 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
                 type="tel"
                 value={mobile}
                 onChange={handleMobileChange}
+                onKeyDown={handleMobileKeyDown}
                 placeholder="Phone number"
                 inputMode="tel"
                 autoComplete="tel-national"

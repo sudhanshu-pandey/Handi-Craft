@@ -33,14 +33,9 @@ const userSchema = new mongoose.Schema({
     otpExpires: {
         type: Date
     },
-    refreshTokens: [String],
-    cart: [
-        {
-            product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
-            quantity: { type: Number, default: 1 },
-            savedForLater: { type: Boolean, default: false }
-        }
-    ],
+    refreshToken: {
+        type: String
+    },
     wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
     recentlyViewed: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }]
 }, { timestamps: true });

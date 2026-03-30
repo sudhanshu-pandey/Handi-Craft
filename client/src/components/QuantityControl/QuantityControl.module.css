@@ -1,0 +1,167 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  width: 100%;
+}
+
+/* Add to Cart Button */
+.addButton {
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #ff9500 0%, #ff7f00 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  min-width: 140px;
+  box-shadow: 0 2px 8px rgba(255, 149, 0, 0.2);
+}
+
+.addButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 149, 0, 0.4);
+}
+
+.addButton:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.addButton.disabled,
+.addButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Quantity Controls Container */
+.quantityControls {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: #f9f9f9;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  width: fit-content;
+}
+
+.quantityControls:hover {
+  border-color: #ff9500;
+  box-shadow: 0 2px 8px rgba(255, 149, 0, 0.15);
+}
+
+/* Control Buttons */
+.controlButton {
+  padding: 8px 12px;
+  background-color: transparent;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  user-select: none;
+}
+
+.controlButton:hover:not(:disabled) {
+  background-color: #ff9500;
+  color: white;
+}
+
+.controlButton:active:not(:disabled) {
+  background-color: #ff7f00;
+}
+
+.controlButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+
+/* Quantity Display */
+.quantityDisplay {
+  padding: 8px 16px;
+  min-width: 50px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  background-color: white;
+  border-left: 1px solid #ddd;
+  border-right: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+}
+
+.quantity {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ff9500;
+}
+
+.loadingSpinner {
+  display: none;
+}
+
+/* Success Message */
+.successMessage {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  padding: 8px 12px;
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  animation: slideIn 0.3s ease-out;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .addButton {
+    width: 100%;
+    min-width: auto;
+  }
+
+  .quantityControls {
+    width: 100%;
+  }
+
+  .controlButton {
+    flex: 1;
+  }
+
+  .quantityDisplay {
+    flex: 1;
+    padding: 8px 12px;
+  }
+}

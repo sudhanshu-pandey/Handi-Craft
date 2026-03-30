@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import styles from './Navbar.module.css'
 import ThemeSwitcher from '../ThemeSwitcher/ThemeSwitcher'
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const navRef = useRef<HTMLElement | null>(null)
+  const location = useLocation()
 
   useEffect(() => {
     if (!isMenuOpen) {
@@ -54,6 +55,14 @@ const Navbar = () => {
     setIsMenuOpen(false)
   }
 
+  // Check if a route is active
+  const isActive = (path: string): boolean => {
+    if (path === '/') {
+      return location.pathname === '/'
+    }
+    return location.pathname.startsWith(path)
+  }
+
   return (
     <nav className={styles.navbar} ref={navRef}>
       <div className="container">
@@ -75,11 +84,11 @@ const Navbar = () => {
           </div>
 
           <div className={`${styles.menuLinks} ${isMenuOpen ? styles.menuOpen : ''}`.trim()}>
-            <Link to="/" className={styles.navLink} onClick={handleLinkClick}>Home</Link>
-            <Link to="/products" className={styles.navLink} onClick={handleLinkClick}>Products</Link>
-            <Link to="/about" className={styles.navLink} onClick={handleLinkClick}>About Us</Link>
-            <Link to="/contact" className={styles.navLink} onClick={handleLinkClick}>Contact Us</Link>
-            <Link to="/donate" className={`${styles.navLink} ${styles.donateLink}`.trim()} onClick={handleLinkClick}>Donate Us</Link>
+            <Link to="/" className={`${styles.navLink} ${isActive('/') ? styles.activeLink : ''}`.trim()} onClick={handleLinkClick}>Home</Link>
+            <Link to="/products" className={`${styles.navLink} ${isActive('/products') ? styles.activeLink : ''}`.trim()} onClick={handleLinkClick}>Products</Link>
+            <Link to="/about" className={`${styles.navLink} ${isActive('/about') ? styles.activeLink : ''}`.trim()} onClick={handleLinkClick}>About Us</Link>
+            <Link to="/contact" className={`${styles.navLink} ${isActive('/contact') ? styles.activeLink : ''}`.trim()} onClick={handleLinkClick}>Contact Us</Link>
+            <Link to="/donate" className={`${styles.navLink} ${styles.donateLink} ${isActive('/donate') ? styles.activeDonate : ''}`.trim()} onClick={handleLinkClick}>Donate Us</Link>
           </div>
         </div>
       </div>

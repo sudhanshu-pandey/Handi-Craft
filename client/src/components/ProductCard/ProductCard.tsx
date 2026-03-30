@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { Link } from 'react-router-dom'
+import QuantityControl from '../QuantityControl/QuantityControl'
 import styles from './ProductCard.module.css'
 
 interface Product {
@@ -10,14 +11,14 @@ interface Product {
   image: string
   category: string
   sale?: boolean
+  _id?: string | number
 }
 
 interface ProductCardProps {
   product: Product
-  onAddToCart: (product: Product) => void
 }
 
-const ProductCard = memo(({ product, onAddToCart }: ProductCardProps) => {
+const ProductCard = memo(({ product }: ProductCardProps) => {
   const discount = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : 0
@@ -48,14 +49,11 @@ const ProductCard = memo(({ product, onAddToCart }: ProductCardProps) => {
         <div className={styles.rating}>
           ⭐⭐⭐⭐⭐ 0 out of 5
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-          <button
-            className="btn btn-primary"
-            onClick={() => onAddToCart(product)}
-          >
-            Add to Cart
-          </button>
-          <Link to={`/products/${product.id}`} className="btn btn-secondary" style={{ textAlign: 'center' }}>
+        <div className={styles.buttonGroup}>
+          <QuantityControl 
+            productId={typeof product.id === 'number' ? product.id : parseInt(String(product.id), 10)}
+          />
+          <Link to={`/products/${product.id}`} className={styles.viewButton}>
             View
           </Link>
         </div>

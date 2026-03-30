@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { products } from '../data/products'
-import { useCommerce } from '../context/CommerceContext'
+import { useAppSelector, useAppDispatch } from '../store/hooks'
+import { updateQuantity, removeItem, toggleSaveForLater, type CartItem } from '../store/slices/cartSlice'
 import { useAuth } from '../context/AuthContext'
 import LoginModal from '../components/LoginModal/LoginModal'
 import { formatCurrency, sumCartValue, sumOriginalCartValue } from '../utils/commerce'
@@ -14,29 +15,30 @@ const VALID_COUPONS: Record<string, number> = {
 }
 
 const Cart = () => {
-  const { cart, updateCartQuantity, removeFromCart, toggleSaveForLater } = useCommerce()
+  const dispatch = useAppDispatch()
+  const items = useAppSelector((state) => state.cart.items)
   const { isLoggedIn, login } = useAuth()
-    const navigate = useNavigate()
+  const navigate = useNavigate()
   const [couponCode, setCouponCode] = useState('')
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountPct: number } | null>(null)
   const [couponError, setCouponError] = useState('')
   const [isLoginOpen, setIsLoginOpen] = useState(false)
 
-  const cartItems = cart
-    .filter((item) => !item.savedForLater)
-    .map((item) => {
+  const cartItems = items
+    .filter((item: CartItem) => !item.savedForLater)
+    .map((item: CartItem) => {
       const product = products.find((entry) => entry.id === item.productId)
       return product ? { product, quantity: item.quantity } : null
     })
-    .filter((item): item is { product: (typeof products)[number]; quantity: number } => item !== null)
+    .filter((item: any): item is { product: (typeof products)[number]; quantity: number } => item !== null)
 
-  const savedItems = cart
-    .filter((item) => item.savedForLater)
-    .map((item) => {
+  const savedItems = items
+    .filter((item: CartItem) => item.savedForLater)
+    .map((item: CartItem) => {
       const product = products.find((entry) => entry.id === item.productId)
       return product ? { product, quantity: item.quantity } : null
     })
-    .filter((item): item is { product: (typeof products)[number]; quantity: number } => item !== null)
+    .filter((item: any): item is { product: (typeof products)[number]; quantity: number } => item !== null)
 
   const subtotal = sumCartValue(cartItems)
   const originalSubtotal = sumOriginalCartValue(cartItems)
@@ -75,15 +77,15 @@ const Cart = () => {
       <h1 style={{ marginBottom: 16 }}>Smart Cart</h1>
 
       {cartItems.length === 0 ? (
-        <div className={styles.card} style={{ padding: 16 }}>
-          <h2 style={{ color: 'var(--text-dark)' }}>Your cart is empty</h2>
-          <p>Add artisan products to continue checkout.</p>
-          <Link to="/products" className={styles.primaryBtn}>Continue shopping</Link>
+        <div className={styles.card} style={{ padding: 24, textAlign: 'center' }}>
+          <h2 style={{ color: 'var(--text-dark)', marginBottom: 12 }}>Your cart is empty</h2>
+          <p style={{ marginBottom: 24 }}>Add artisan products to continue checkout.</p>
+          <Link to="/products" className={styles.primaryBtn} style={{ display: 'inline-block' }}>Continue shopping</Link>
         </div>
       ) : (
         <div className={styles.checkoutGrid} style={{ gridTemplateColumns: '1.4fr 1fr' }}>
           <section className={styles.card} style={{ padding: 14 }}>
-            {cartItems.map(({ product, quantity }) => (
+            {cartItems.map(({ product, quantity }: { product: typeof products[0]; quantity: number }) => (
               <article key={product.id} className={styles.softCard} style={{ padding: 12, marginBottom: 10 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 10 }}>
                   <img src={product.image} alt={product.name} loading="lazy" style={{ width: 90, height: 90, borderRadius: 10, objectFit: 'cover' }} />
@@ -92,13 +94,26 @@ const Cart = () => {
                     <p style={{ marginBottom: 8 }}>{formatCurrency(product.price)}</p>
                     <div className={styles.row}>
                       <div className={styles.qtyWrap}>
-                        <button type="button" className={styles.qtyBtn} onClick={() => updateCartQuantity(product.id, quantity - 1)}>-</button>
+                        <button 
+                          type="button" 
+                          className={styles.qtyBtn} 
+                          onClick={() => {
+                            const newQty = quantity - 1;
+                            if (newQty <= 0) {
+                              dispatch(removeItem(product.id));
+                            } else {
+                              dispatch(updateQuantity({ productId: product.id, quantity: newQty }));
+                            }
+                          }}
+                        >
+                          -
+                        </button>
                         <span className={styles.qtyVal} data-testid={`cart-qty-${product.id}`}>{quantity}</span>
-                        <button type="button" className={styles.qtyBtn} onClick={() => updateCartQuantity(product.id, quantity + 1)}>+</button>
+                        <button type="button" className={styles.qtyBtn} onClick={() => dispatch(updateQuantity({ productId: product.id, quantity: quantity + 1 }))}>+</button>
                       </div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button type="button" className={styles.ghostBtn} onClick={() => toggleSaveForLater(product.id)}>Save for later</button>
-                        <button type="button" className={styles.ghostBtn} onClick={() => removeFromCart(product.id)}>Remove</button>
+                        <button type="button" className={styles.ghostBtn} onClick={() => dispatch(toggleSaveForLater(product.id))}>Save for later</button>
+                        <button type="button" className={styles.ghostBtn} onClick={() => dispatch(removeItem(product.id))}>Remove</button>
                       </div>
                     </div>
                   </div>
@@ -109,14 +124,14 @@ const Cart = () => {
             {savedItems.length > 0 && (
               <div style={{ marginTop: 18 }}>
                 <h3>Saved for later</h3>
-                {savedItems.map(({ product, quantity }) => (
+                {savedItems.map(({ product, quantity }: { product: typeof products[0]; quantity: number }) => (
                   <article key={product.id} className={styles.softCard} style={{ padding: 12, marginTop: 10 }}>
                     <div className={styles.row}>
                       <div>
                         <strong style={{ color: 'var(--text-dark)' }}>{product.name}</strong>
                         <p>Qty: {quantity}</p>
                       </div>
-                      <button type="button" className={styles.secondaryBtn} onClick={() => toggleSaveForLater(product.id)}>
+                      <button type="button" className={styles.secondaryBtn} onClick={() => dispatch(toggleSaveForLater(product.id))}>
                         Move to cart
                       </button>
                     </div>

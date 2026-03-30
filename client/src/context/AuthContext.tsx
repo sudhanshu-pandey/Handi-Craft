@@ -1,5 +1,6 @@
-import { createContext, ReactNode, useCallback, useContext, useState } from 'react'
+import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react'
 import api from '../services/api'
+import { clearLocalCart } from '../utils/cartStorage'
 
 export type Address = {
   id: string
@@ -42,6 +43,8 @@ const buildDefaultProfile = (mobile: string): UserProfile => ({
   addresses: [],
 })
 
+const AUTH_STORAGE_KEY = 'hc_auth_state'
+
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -49,6 +52,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Restore auth state from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(AUTH_STORAGE_KEY)
+      if (stored) {
+        const { isLoggedIn: wasLoggedIn, profile } = JSON.parse(stored)
+        if (wasLoggedIn && profile) {
+          setIsLoggedIn(true)
+          setUserProfile(profile)
+          console.log('✅ [AuthContext] Restored login session on refresh')
+        }
+      }
+    } catch (err) {
+      console.error('❌ [AuthContext] Error restoring auth state:', err)
+    }
+  }, [])
+
+  // Listen for auth changes across tabs
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === AUTH_STORAGE_KEY) {
+        try {
+          if (event.newValue === null) {
+            // Auth was cleared in another tab (logout)
+            setIsLoggedIn(false)
+            setUserProfile(null)
+            console.log('✅ [AuthContext] Detected logout in another tab')
+          } else {
+            // Auth was set in another tab (login)
+            const { isLoggedIn: newIsLoggedIn, profile } = JSON.parse(event.newValue)
+            setIsLoggedIn(newIsLoggedIn)
+            setUserProfile(profile)
+            console.log('✅ [AuthContext] Detected login in another tab')
+          }
+        } catch (err) {
+          console.error('❌ [AuthContext] Error syncing auth across tabs:', err)
+        }
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
 
   const sendOTP = useCallback(async (phone: string) => {
     try {
@@ -81,8 +128,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (result.accessToken) {
         api.setToken(result.accessToken)
-        setUserProfile(buildDefaultProfile(phone))
+        const profile = buildDefaultProfile(phone)
+        setUserProfile(profile)
         setIsLoggedIn(true)
+        
+        // Persist to localStorage
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+          isLoggedIn: true,
+          profile,
+        }))
+        console.log('✅ [AuthContext] Login session saved')
+        
+        // Dispatch cart sync event so Redux can sync cart to database
+        window.dispatchEvent(new CustomEvent('userLoggedIn', { detail: { phone } }))
       }
       
       return result
@@ -96,8 +154,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [])
 
   const login = useCallback((mobile: string) => {
-    setUserProfile(buildDefaultProfile(mobile))
+    const profile = buildDefaultProfile(mobile)
+    setUserProfile(profile)
     setIsLoggedIn(true)
+    
+    // Persist to localStorage
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+      isLoggedIn: true,
+      profile,
+    }))
+    console.log('✅ [AuthContext] Login session saved')
   }, [])
 
   const logout = useCallback(async () => {
@@ -105,6 +171,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(true)
       // Clear token first to prevent any ongoing requests
       api.clearToken()
+      // Clear guest cart on logout
+      clearLocalCart()
       // Then notify server
       await api.logout()
     } catch (err) {
@@ -115,6 +183,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUserProfile(null)
       setError(null)
       setIsLoading(false)
+      // Remove auth from localStorage
+      localStorage.removeItem(AUTH_STORAGE_KEY)
+      console.log('✅ [AuthContext] Logged out - auth state and cart cleared')
     }
   }, [])
 

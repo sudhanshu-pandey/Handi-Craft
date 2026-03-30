@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { products } from '../data/products'
-import { useCommerce } from '../context/CommerceContext'
 import { useAuth } from '../context/AuthContext'
+import { useCart } from '../hooks/useCart'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import LoginModal from '../components/LoginModal/LoginModal'
 import {
@@ -62,18 +62,9 @@ const ProductDetails = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { isLoggedIn, login } = useAuth()
+  const { addToCart } = useCart()
   const numericId = Number(id)
   const product = products.find((item) => item.id === numericId)
-  const {
-    addToCart,
-    toggleWishlist,
-    wishlist,
-    addRecentlyViewed,
-    recentlyViewed,
-    savedPincode,
-    setSavedPincode,
-    trackEvent,
-  } = useCommerce()
 
   const [selectedImage, setSelectedImage] = useState(0)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -85,15 +76,15 @@ const ProductDetails = () => {
   const [reviews, setReviews] = useState<ReviewEntry[]>(defaultReviews)
   const [reviewForm, setReviewForm] = useState({ name: '', rating: 5, comment: '' })
   const [openFaq, setOpenFaq] = useState<number[]>([0])
-  const [pincodeInput, setPincodeInput] = useState(savedPincode)
+  const [pincodeInput, setPincodeInput] = useState('110001')
   const [purchasedToast, setPurchasedToast] = useState('')
   const [isLoginOpen, setIsLoginOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState<PendingAction>(null)
   const [viewerCount, setViewerCount] = useState(() => 6 + (numericId % 18))
+  const [isWishlisted, setIsWishlisted] = useState(false)
 
   const debouncedPincode = useDebouncedValue(pincodeInput, 350)
   const stockCount = getStockCount(numericId)
-  const isWishlisted = wishlist.includes(numericId)
   const images = product ? productImages(product.image) : []
 
   const deliveryInfo = useMemo(() => estimateDeliveryByPincode(debouncedPincode), [debouncedPincode])
@@ -128,14 +119,8 @@ const ProductDetails = () => {
       .filter((item) => item.id !== product.id)
       .slice(0, 4)
 
-    const recently = recentlyViewed
-      .filter((itemId) => itemId !== product.id)
-      .map((itemId) => products.find((item) => item.id === itemId))
-      .filter((entry): entry is (typeof products)[number] => Boolean(entry))
-      .slice(0, 4)
-
-    return { alsoBought, trending, recently }
-  }, [product, recentlyViewed])
+    return { alsoBought, trending, recently: [] }
+  }, [product])
 
   useEffect(() => {
     const timer = window.setTimeout(() => setLoading(false), 500)
@@ -146,9 +131,7 @@ const ProductDetails = () => {
     if (!product) {
       return
     }
-    addRecentlyViewed(product.id)
-    trackEvent('product_viewed', { productId: product.id, productName: product.name })
-    // addRecentlyViewed and trackEvent are stable useCallback refs — safe to omit
+    // Analytics tracking can be added back later
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [numericId])
 
@@ -212,7 +195,6 @@ const ProductDetails = () => {
       return
     }
     addToCart(product.id, quantity)
-    trackEvent('added_to_cart', { productId: product.id, quantity, source: 'pdp' })
     setToast('Added to cart')
   }
 
@@ -237,7 +219,6 @@ const ProductDetails = () => {
 
     if (action === 'add') {
       addToCart(product.id, quantity)
-      trackEvent('added_to_cart', { productId: product.id, quantity, source: 'pdp_after_login' })
       setToast('Added to cart')
       return
     }
@@ -302,7 +283,6 @@ const ProductDetails = () => {
     navigator.geolocation.getCurrentPosition(
       () => {
         setPincodeInput('110001')
-        setSavedPincode('110001')
       },
       () => setToast('Could not fetch location'),
       { timeout: 6000 },
@@ -412,7 +392,7 @@ const ProductDetails = () => {
                     <button
                       type="button"
                       className={styles.secondaryBtn}
-                      onClick={() => setSavedPincode(pincodeInput)}
+                      onClick={() => setToast('Pincode updated')}
                     >
                       Save
                     </button>
@@ -447,7 +427,7 @@ const ProductDetails = () => {
                     type="button"
                     className={styles.ghostBtn}
                     onClick={() => {
-                      toggleWishlist(product.id)
+                      setIsWishlisted(!isWishlisted)
                       setToast(isWishlisted ? 'Removed from wishlist' : 'Added to wishlist')
                     }}
                   >
