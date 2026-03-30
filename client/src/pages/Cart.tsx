@@ -2,17 +2,13 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { products } from '../data/products'
 import { useAppSelector, useAppDispatch } from '../store/hooks'
-import { updateQuantity, removeItem, toggleSaveForLater, type CartItem } from '../store/slices/cartSlice'
+import { updateQuantity, removeItem, toggleSaveForLater, moveToActiveCart, type CartItem } from '../store/slices/cartSlice'
+import { addItem as addToWishlist, removeItem as removeFromWishlist } from '../store/slices/wishlistSlice'
 import { useAuth } from '../context/AuthContext'
 import LoginModal from '../components/LoginModal/LoginModal'
 import { formatCurrency, sumCartValue, sumOriginalCartValue } from '../utils/commerce'
+import { verifyCoupon } from '../api/coupon.api'
 import styles from './commerce.module.css'
-
-const VALID_COUPONS: Record<string, number> = {
-  ARTISAN10: 10,
-  CRAFT20: 20,
-  HANDICRAFT5: 5,
-}
 
 const Cart = () => {
   const dispatch = useAppDispatch()
@@ -20,8 +16,9 @@ const Cart = () => {
   const { isLoggedIn, login } = useAuth()
   const navigate = useNavigate()
   const [couponCode, setCouponCode] = useState('')
-  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountPct: number } | null>(null)
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountPct: number; discountAmount: number } | null>(null)
   const [couponError, setCouponError] = useState('')
+  const [couponLoading, setCouponLoading] = useState(false)
   const [isLoginOpen, setIsLoginOpen] = useState(false)
 
   const cartItems = items
@@ -43,25 +40,43 @@ const Cart = () => {
   const subtotal = sumCartValue(cartItems)
   const originalSubtotal = sumOriginalCartValue(cartItems)
   const discount = Math.max(0, originalSubtotal - subtotal)
-  const couponDiscount = appliedCoupon ? Math.round(subtotal * (appliedCoupon.discountPct / 100)) : 0
+  const couponDiscount = appliedCoupon ? appliedCoupon.discountAmount : 0
   const deliveryFee = subtotal > 2499 || subtotal === 0 ? 0 : 49
-  const total = subtotal - couponDiscount + deliveryFee
+  const total = subtotal - discount - couponDiscount + deliveryFee
 
-  const handleApplyCoupon = () => {
+  const handleApplyCoupon = async () => {
     const code = couponCode.trim().toUpperCase()
     if (!code) {
       setCouponError('Enter a coupon code')
       return
     }
-    const pct = VALID_COUPONS[code]
-    if (!pct) {
-      setCouponError('Invalid or expired coupon')
-      setAppliedCoupon(null)
-      return
-    }
-    setAppliedCoupon({ code, discountPct: pct })
+
+    setCouponLoading(true)
     setCouponError('')
-    setCouponCode('')
+
+    try {
+      // Verify coupon from backend
+      const response = await verifyCoupon(code, subtotal)
+
+      if (!response.success) {
+        setCouponError(response.message)
+        setAppliedCoupon(null)
+        return
+      }
+
+      // Apply coupon with discount details from backend
+      setAppliedCoupon({
+        code: response.data?.code || code,
+        discountPct: response.data?.discountValue || 0,
+        discountAmount: response.data?.discountAmount || 0,
+      })
+      setCouponCode('')
+    } catch (error) {
+      setCouponError('Failed to apply coupon. Please try again.')
+      setAppliedCoupon(null)
+    } finally {
+      setCouponLoading(false)
+    }
   }
 
   const handleCheckout = () => {
@@ -76,7 +91,7 @@ const Cart = () => {
     <div className={`container ${styles.page}`} data-testid="cart-page">
       <h1 style={{ marginBottom: 16 }}>Smart Cart</h1>
 
-      {cartItems.length === 0 ? (
+      {cartItems.length === 0 && savedItems.length === 0 ? (
         <div className={styles.card} style={{ padding: 24, textAlign: 'center' }}>
           <h2 style={{ color: 'var(--text-dark)', marginBottom: 12 }}>Your cart is empty</h2>
           <p style={{ marginBottom: 24 }}>Add artisan products to continue checkout.</p>
@@ -112,7 +127,10 @@ const Cart = () => {
                         <button type="button" className={styles.qtyBtn} onClick={() => dispatch(updateQuantity({ productId: product.id, quantity: quantity + 1 }))}>+</button>
                       </div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button type="button" className={styles.ghostBtn} onClick={() => dispatch(toggleSaveForLater(product.id))}>Save for later</button>
+                        <button type="button" className={styles.ghostBtn} onClick={() => {
+                          dispatch(toggleSaveForLater(product.id));
+                          dispatch(addToWishlist(product.id));
+                        }}>Save for later</button>
                         <button type="button" className={styles.ghostBtn} onClick={() => dispatch(removeItem(product.id))}>Remove</button>
                       </div>
                     </div>
@@ -131,9 +149,20 @@ const Cart = () => {
                         <strong style={{ color: 'var(--text-dark)' }}>{product.name}</strong>
                         <p>Qty: {quantity}</p>
                       </div>
-                      <button type="button" className={styles.secondaryBtn} onClick={() => dispatch(toggleSaveForLater(product.id))}>
-                        Move to cart
-                      </button>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button type="button" className={styles.secondaryBtn} onClick={() => {
+                          dispatch(moveToActiveCart(product.id));
+                          dispatch(removeFromWishlist(product.id));
+                        }}>
+                          Move to cart
+                        </button>
+                        <button type="button" className={styles.ghostBtn} onClick={() => {
+                          dispatch(removeItem(product.id));
+                          dispatch(removeFromWishlist(product.id));
+                        }}>
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   </article>
                 ))}
@@ -169,15 +198,22 @@ const Cart = () => {
                     placeholder="Coupon code"
                     value={couponCode}
                     onChange={(event) => { setCouponCode(event.target.value); setCouponError('') }}
-                    onKeyDown={(event) => event.key === 'Enter' && handleApplyCoupon()}
+                    onKeyDown={(event) => event.key === 'Enter' && !couponLoading && handleApplyCoupon()}
+                    disabled={couponLoading}
                     data-testid="coupon-input"
                   />
-                  <button type="button" className={styles.secondaryBtn} onClick={handleApplyCoupon} data-testid="apply-coupon-btn">
-                    Apply
+                  <button 
+                    type="button" 
+                    className={styles.secondaryBtn} 
+                    onClick={handleApplyCoupon} 
+                    disabled={couponLoading}
+                    data-testid="apply-coupon-btn"
+                  >
+                    {couponLoading ? 'Verifying...' : 'Apply'}
                   </button>
                 </div>
                 {couponError && <p style={{ color: 'var(--error-color)', fontSize: 12, marginTop: 4 }}>{couponError}</p>}
-                <p style={{ fontSize: 11, color: 'var(--text-light)', marginTop: 4 }}>Try: ARTISAN10 · CRAFT20 · HANDICRAFT5</p>
+                <p style={{ fontSize: 11, color: 'var(--text-light)', marginTop: 4 }}>Coupons are fetched from our backend</p>
               </div>
             )}
 

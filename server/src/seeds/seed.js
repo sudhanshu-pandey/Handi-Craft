@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import Product from "../models/product.model.js";
 import Category from "../models/category.model.js";
-import Coupon from "../models/coupon.model.js";
 import CartItem from "../models/cartitem.model.js";
 
 dotenv.config();
@@ -15,7 +14,6 @@ const seedDatabase = async () => {
     // Clear existing data
     await Product.deleteMany({});
     await Category.deleteMany({});
-    await Coupon.deleteMany({});
     await CartItem.deleteMany({});
     console.log("✓ Cleared existing data");
 
@@ -169,45 +167,6 @@ const seedDatabase = async () => {
 
     await Product.insertMany(products);
     console.log(`✓ Created ${products.length} products`);
-
-    // Create sample coupons
-    const coupons = [
-      {
-        code: "ARTISAN10",
-        description: "10% off for artisan supporters",
-        discountType: "percentage",
-        discountValue: 10,
-        minOrderAmount: 500,
-        maxDiscountAmount: 500,
-        usageLimit: 100,
-        expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-        isActive: true
-      },
-      {
-        code: "CRAFT20",
-        description: "20% off on orders above ₹2000",
-        discountType: "percentage",
-        discountValue: 20,
-        minOrderAmount: 2000,
-        maxDiscountAmount: 1000,
-        usageLimit: 50,
-        expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-        isActive: true
-      },
-      {
-        code: "HANDICRAFT5",
-        description: "₹500 off on purchases",
-        discountType: "fixed",
-        discountValue: 500,
-        minOrderAmount: 2500,
-        usageLimit: 75,
-        expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
-        isActive: true
-      }
-    ];
-
-    await Coupon.insertMany(coupons);
-    console.log(`✓ Created ${coupons.length} coupons`);
 
     console.log("\n✅ Database seeding completed successfully!");
     process.exit(0);

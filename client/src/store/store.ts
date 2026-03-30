@@ -1,5 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
 import cartReducer from './slices/cartSlice';
+import wishlistReducer from './slices/wishlistSlice';
 import { cartPersistenceMiddleware } from './middleware/cartPersistence';
 
 /**
@@ -9,6 +10,7 @@ import { cartPersistenceMiddleware } from './middleware/cartPersistence';
 const store = configureStore({
   reducer: {
     cart: cartReducer,
+    wishlist: wishlistReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(cartPersistenceMiddleware as any),

@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { addItem, updateQuantity, removeItem } from '../../store/slices/cartSlice';
+import { addItem as addToWishlist } from '../../store/slices/wishlistSlice';
 import type { CartItem } from '../../store/slices/cartSlice';
 import styles from './QuantityControl.module.css';
 
@@ -14,7 +15,7 @@ interface QuantityControlProps {
  * QuantityControl Component
  * Professional cart quantity toggle UI
  * Shows "Add to Cart" button initially
- * On click, shows [-] quantity [+] controls
+ * On click, shows [-] quantity [+] controls + Save for Later button
  * Uses Redux Toolkit for state management
  */
 export const QuantityControl: React.FC<QuantityControlProps> = ({
@@ -23,14 +24,17 @@ export const QuantityControl: React.FC<QuantityControlProps> = ({
   onQuantityChange,
 }) => {
   const dispatch = useAppDispatch();
-  const items = useAppSelector((state) => state.cart.items);
+  const cartItems = useAppSelector((state) => state.cart.items);
+  const wishlistItems = useAppSelector((state) => state.wishlist.items);
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
   // Get current quantity from Redux store
-  const cartItem = items.find((item: CartItem) => item.productId === productId);
+  const cartItem = cartItems.find((item: CartItem) => item.productId === productId);
   const currentQuantity = cartItem?.quantity || initialQuantity;
-  const isInCart = currentQuantity > 0;
+  // Item is "in cart" only if it's not saved for later
+  const isInCart = cartItem && cartItem.quantity > 0 && !cartItem.savedForLater;
+  const isInWishlist = wishlistItems.some((item: any) => item.productId === productId);
 
   // Add to cart
   const handleAddToCart = useCallback(() => {
@@ -81,12 +85,30 @@ export const QuantityControl: React.FC<QuantityControlProps> = ({
     }
   }, [productId, currentQuantity, dispatch, onQuantityChange]);
 
+  // Save for later (add to wishlist)
+  const handleSaveForLater = useCallback(() => {
+    if (isLoading) return;
+
+    setIsLoading(true);
+    try {
+      dispatch(addToWishlist(productId));
+      // Optionally remove from cart when saving for later
+      if (isInCart) {
+        dispatch(removeItem(productId));
+      }
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [productId, isInCart, dispatch]);
+
   return (
     <div className={styles.container}>
       {/* Success Message */}
       {showSuccess && (
         <div className={styles.successMessage}>
-          ✅ Added to cart
+          {isInWishlist ? '❤️ Saved to wishlist' : '✅ Added to cart'}
         </div>
       )}
 
@@ -101,34 +123,47 @@ export const QuantityControl: React.FC<QuantityControlProps> = ({
           {isLoading ? '⏳ Adding...' : '🛒 Add to Cart'}
         </button>
       ) : (
-        /* If in cart: Show quantity controls */
-        <div className={styles.quantityControls}>
-          {/* Decrement Button */}
-          <button
-            onClick={handleDecrement}
-            disabled={isLoading}
-            className={`${styles.controlButton} ${styles.decrementButton}`}
-            aria-label="Decrease quantity"
-            title="Decrease quantity"
-          >
-            −
-          </button>
+        /* If in cart: Show quantity controls + save for later */
+        <>
+          <div className={styles.quantityControls}>
+            {/* Decrement Button */}
+            <button
+              onClick={handleDecrement}
+              disabled={isLoading}
+              className={`${styles.controlButton} ${styles.decrementButton}`}
+              aria-label="Decrease quantity"
+              title="Decrease quantity"
+            >
+              −
+            </button>
 
-          {/* Quantity Display */}
-          <div className={styles.quantityDisplay}>
-            <span className={styles.quantity}>{currentQuantity}</span>
+            {/* Quantity Display */}
+            <div className={styles.quantityDisplay}>
+              <span className={styles.quantity}>{currentQuantity}</span>
+            </div>
+
+            {/* Increment Button */}
+            <button
+              onClick={handleIncrement}
+              disabled={isLoading || currentQuantity >= 999}
+              className={`${styles.controlButton} ${styles.incrementButton}`}
+              aria-label="Increase quantity"
+            >
+              +
+            </button>
           </div>
 
-          {/* Increment Button */}
+          {/* Save for Later Button */}
           <button
-            onClick={handleIncrement}
-            disabled={isLoading || currentQuantity >= 999}
-            className={`${styles.controlButton} ${styles.incrementButton}`}
-            aria-label="Increase quantity"
+            onClick={handleSaveForLater}
+            disabled={isLoading}
+            className={`${styles.saveButton} ${isInWishlist ? styles.saved : ''}`}
+            aria-label="Save for later"
+            title={isInWishlist ? 'Already in wishlist' : 'Save for later'}
           >
-            +
+            {isInWishlist ? '❤️ Saved' : '🤍 Save for Later'}
           </button>
-        </div>
+        </>
       )}
     </div>
   );

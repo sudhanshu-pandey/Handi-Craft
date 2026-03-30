@@ -1,0 +1,103 @@
+/**
+ * Coupon API Service
+ * Handles all coupon-related API calls
+ * Fetches coupons from backend database
+ */
+
+import api from '../services/api'
+
+export interface CouponResponse {
+  code: string
+  description: string
+  discountType: 'percentage' | 'fixed'
+  discountValue: number
+  maxDiscountAmount?: number
+  minOrderAmount: number
+  usageLimit?: number
+  expiryDate?: string
+  isActive: boolean
+}
+
+export interface VerifyCouponRequest {
+  code: string
+  orderAmount: number
+}
+
+export interface VerifyCouponResponse {
+  success: boolean
+  message: string
+  data?: {
+    code: string
+    description: string
+    discountType: 'percentage' | 'fixed'
+    discountValue: number
+    maxDiscountAmount?: number
+    discountAmount: number
+    finalAmount: number
+  }
+}
+
+/**
+ * Get all active coupons from database
+ * @returns Array of available coupons
+ */
+export const getAllCoupons = async (): Promise<CouponResponse[]> => {
+  try {
+    console.log('🔵 [CouponAPI] Fetching all coupons from backend')
+    const response = await api.request('/coupons')
+    console.log('🟢 [CouponAPI] Coupons fetched successfully:', response.data)
+    return response.data || []
+  } catch (error: any) {
+    console.error('🔴 [CouponAPI] Failed to fetch coupons:', error.message)
+    throw new Error(error.message || 'Failed to fetch coupons')
+  }
+}
+
+/**
+ * Verify and apply coupon to cart
+ * Checks validity, expiry, usage limits, and minimum order amount
+ * @param code - Coupon code
+ * @param orderAmount - Current cart total
+ * @returns Coupon details with calculated discount
+ */
+export const verifyCoupon = async (
+  code: string,
+  orderAmount: number
+): Promise<VerifyCouponResponse> => {
+  try {
+    console.log('🔵 [CouponAPI] Verifying coupon:', code, 'for amount:', orderAmount)
+    const response = await api.request('/coupons/verify', {
+      method: 'POST',
+      body: JSON.stringify({
+        code,
+        orderAmount,
+      }),
+    })
+    console.log('🟢 [CouponAPI] Coupon verified successfully:', response)
+    return response
+  } catch (error: any) {
+    console.error('🔴 [CouponAPI] Coupon verification failed:', error.message)
+    const errorMessage = error.message || 'Failed to verify coupon'
+    return {
+      success: false,
+      message: errorMessage,
+    }
+  }
+}
+
+/**
+ * Get coupon details by code
+ * @param code - Coupon code
+ * @returns Coupon details
+ */
+export const getCouponByCode = async (code: string): Promise<CouponResponse | null> => {
+  try {
+    console.log('🔵 [CouponAPI] Fetching coupon details:', code)
+    const response = await api.request(`/coupons/${code}`)
+    console.log('🟢 [CouponAPI] Coupon details fetched:', response)
+    return response.data || null
+  } catch (error: any) {
+    console.error('🔴 [CouponAPI] Failed to fetch coupon details:', error.message)
+    return null
+  }
+}

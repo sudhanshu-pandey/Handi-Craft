@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth, Address } from '../../context/AuthContext'
+import { useAppDispatch, useAppSelector } from '../../store/hooks'
+import { addItem, removeItem as removeFromCart } from '../../store/slices/cartSlice'
+import { removeItem as removeFromWishlist } from '../../store/slices/wishlistSlice'
+import { products } from '../../data/products'
 import styles from './ProfileModal.module.css'
 
 type Tab = 'profile' | 'addresses' | 'orders' | 'wishlist'
@@ -15,12 +19,6 @@ const MOCK_ORDERS = [
   { id: 'MLS20245104', date: 'Feb 14, 2026', status: 'Processing', amount: '₹3,499', items: 'Brass Elephant Figurine', statusColor: 'processing' },
 ]
 
-const MOCK_WISHLIST = [
-  { id: 'w1', name: 'Marble Taj Mahal Replica', price: '₹8,499', category: 'Marble Handicrafts' },
-  { id: 'w2', name: 'Dhokra Tribal Figurine', price: '₹2,299', category: 'Dhokra' },
-  { id: 'w3', name: 'Hand-Woven Silk Textile', price: '₹4,199', category: 'Textiles' },
-]
-
 const AVATAR_INITIALS = (name: string) => {
   const parts = name.trim().split(' ')
   return parts.length >= 2 ? `${parts[0][0]}${parts[1][0]}`.toUpperCase() : parts[0].slice(0, 2).toUpperCase()
@@ -28,6 +26,7 @@ const AVATAR_INITIALS = (name: string) => {
 
 const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
   const { userProfile, logout } = useAuth()
+  const wishlistItems = useAppSelector((state) => state.wishlist.items)
   const [activeTab, setActiveTab] = useState<Tab>('profile')
   const modalRef = useRef<HTMLDivElement>(null)
 
@@ -70,7 +69,7 @@ const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
           </div>
           <div className={styles.userMeta}>
             <h2 className={styles.userName}>{userProfile.name}</h2>
-            <p className={styles.userMobile}>+91 {userProfile.mobile}</p>
+            <p className={styles.userMobile}>+91 {userProfile.mobile.replace(/^\+91/, '').trim()}</p>
             <p className={styles.userEmail}>{userProfile.email}</p>
           </div>
           <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close profile">
@@ -95,10 +94,10 @@ const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
 
         {/* --- Content --- */}
         <div className={styles.content}>
-          {activeTab === 'profile' && <ProfileTab profile={userProfile} />}
+          {activeTab === 'profile' && <ProfileTab profile={userProfile} wishlistCount={wishlistItems.length} />}
           {activeTab === 'addresses' && <AddressesTab addresses={userProfile.addresses} />}
           {activeTab === 'orders' && <OrdersTab />}
-          {activeTab === 'wishlist' && <WishlistTab />}
+          {activeTab === 'wishlist' && <WishlistTab onClose={onClose} />}
         </div>
 
         {/* --- Footer Logout --- */}
@@ -128,7 +127,7 @@ const TAB_LABELS: Record<Tab, string> = {
   wishlist: 'Wishlist',
 }
 
-const ProfileTab = ({ profile }: { profile: NonNullable<ReturnType<typeof useAuth>['userProfile']> }) => (
+const ProfileTab = ({ profile, wishlistCount }: { profile: NonNullable<ReturnType<typeof useAuth>['userProfile']>, wishlistCount: number }) => (
   <div className={styles.section}>
     <h3 className={styles.sectionTitle}>Personal Details</h3>
     <div className={styles.fieldGrid}>
@@ -145,7 +144,7 @@ const ProfileTab = ({ profile }: { profile: NonNullable<ReturnType<typeof useAut
         <span className={styles.statLabel}>Orders</span>
       </div>
       <div className={styles.statCard}>
-        <span className={styles.statNum}>3</span>
+        <span className={styles.statNum}>{wishlistCount}</span>
         <span className={styles.statLabel}>Wishlist</span>
       </div>
       <div className={styles.statCard}>
@@ -217,26 +216,64 @@ const OrdersTab = () => (
   </div>
 )
 
-const WishlistTab = () => (
-  <div className={styles.section}>
-    <h3 className={styles.sectionTitle}>My Wishlist</h3>
-    <div className={styles.wishList}>
-      {MOCK_WISHLIST.map((item) => (
-        <div key={item.id} className={styles.wishCard}>
-          <div className={styles.wishInfo}>
-            <p className={styles.wishName}>{item.name}</p>
-            <p className={styles.wishCat}>{item.category}</p>
-            <p className={styles.wishPrice}>{item.price}</p>
-          </div>
-          <div className={styles.wishActions}>
-            <button type="button" className={styles.wishCartBtn}>Add to Cart</button>
-            <button type="button" className={styles.wishRemoveBtn}>✕</button>
-          </div>
+const WishlistTab = ({ onClose }: { onClose: () => void }) => {
+  const dispatch = useAppDispatch()
+  const wishlistItems = useAppSelector((state) => state.wishlist.items)
+  
+  const wishlistProducts = wishlistItems
+    .map((item: any) => products.find((p: any) => p.id === item.productId))
+    .filter((p: any): p is typeof products[0] => p !== undefined)
+
+  return (
+    <div className={styles.section}>
+      <h3 className={styles.sectionTitle}>My Wishlist</h3>
+      {wishlistProducts.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '2rem', color: '#999' }}>
+          <p>Your wishlist is empty</p>
         </div>
-      ))}
+      ) : (
+        <div className={styles.wishList}>
+          {wishlistProducts.map((product: any) => (
+            <div key={product.id} className={styles.wishCard}>
+              <div className={styles.wishInfo}>
+                <p className={styles.wishName}>{product.name}</p>
+                <p className={styles.wishCat}>{product.category}</p>
+                <p className={styles.wishPrice}>₹{product.price}</p>
+              </div>
+              <div className={styles.wishActions}>
+                <button 
+                  type="button" 
+                  className={styles.wishCartBtn}
+                  onClick={() => {
+                    // Add to active cart (not as savedForLater)
+                    dispatch(addItem({ productId: product.id, quantity: 1 }));
+                    // Remove from wishlist
+                    dispatch(removeFromWishlist(product.id));
+                    // Show success and close modal
+                    setTimeout(() => onClose(), 500);
+                  }}
+                >
+                  Add to Cart
+                </button>
+                <button 
+                  type="button" 
+                  className={styles.wishRemoveBtn}
+                  onClick={() => {
+                    // Remove from both Redux wishlist and cart savedForLater
+                    dispatch(removeFromWishlist(product.id));
+                    dispatch(removeFromCart(product.id));
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
-  </div>
-)
+  )
+}
 
 /* ─── Helpers ─────────────────────────────────────────────── */
 

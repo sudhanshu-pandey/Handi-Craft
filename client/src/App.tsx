@@ -2,7 +2,8 @@ import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from './store/hooks'
 import { loadCart } from './store/slices/cartSlice'
-import { loadCartFromLocalStorage } from './store/middleware/cartPersistence'
+import { loadWishlist } from './store/slices/wishlistSlice'
+import { loadCartFromLocalStorage, loadWishlistFromLocalStorage } from './store/middleware/cartPersistence'
 import api from './services/api'
 import TopHeader from './components/TopHeader/TopHeader.tsx'
 import Navbar from './components/Navbar/Navbar.tsx'
@@ -18,17 +19,21 @@ const Contact = lazy(() => import('./pages/Contact.tsx'))
 const Donate = lazy(() => import('./pages/Donate.tsx'))
 const Checkout = lazy(() => import('./pages/Checkout.tsx'))
 const OrderTracking = lazy(() => import('./pages/OrderTracking.tsx'))
-const Wishlist = lazy(() => import('./pages/Wishlist.tsx'))
 
 function App() {
   const dispatch = useAppDispatch()
   const cartItems = useAppSelector((state) => state.cart.items)
 
-  // Load cart from localStorage on app start
+  // Load cart and wishlist from localStorage on app start
   useEffect(() => {
     const cartData = loadCartFromLocalStorage()
     if (cartData.length > 0) {
       dispatch(loadCart(cartData))
+    }
+
+    const wishlistData = loadWishlistFromLocalStorage()
+    if (wishlistData.length > 0) {
+      dispatch(loadWishlist(wishlistData))
     }
   }, [dispatch])
 
@@ -71,7 +76,6 @@ function App() {
               <Route path="/products/:id" element={<ProductDetails />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
-              <Route path="/wishlist" element={<Wishlist />} />
               <Route path="/order-tracking/:orderId" element={<OrderTracking />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />

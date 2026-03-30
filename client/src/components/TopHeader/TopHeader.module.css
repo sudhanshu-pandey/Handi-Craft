@@ -31,21 +31,18 @@
   color: var(--text-on-primary);
   white-space: nowrap;
   will-change: transform;
-  position: absolute;
-  left: 0;
-  top: 50%;
-  -webkit-animation: ticker 20s linear infinite;
-  animation: ticker 20s linear infinite;
+  -webkit-animation: scroll-left 20s linear infinite;
+  animation: scroll-left 20s linear infinite;
 }
 
-@-webkit-keyframes ticker {
-  0%   { -webkit-transform: translate3d(100%, -50%, 0); transform: translate3d(100%, -50%, 0); }
-  100% { -webkit-transform: translate3d(-100%, -50%, 0); transform: translate3d(-100%, -50%, 0); }
+@-webkit-keyframes scroll-left {
+  from { -webkit-transform: translateX(100vw); transform: translateX(100vw); }
+  to { -webkit-transform: translateX(-100vw); transform: translateX(-100vw); }
 }
 
-@keyframes ticker {
-  0%   { transform: translate3d(100%, -50%, 0); }
-  100% { transform: translate3d(-100%, -50%, 0); }
+@keyframes scroll-left {
+  from { transform: translateX(100vw); }
+  to { transform: translateX(-100vw); }
 }
 
 .promotionText:hover {
