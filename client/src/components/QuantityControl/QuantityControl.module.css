@@ -184,6 +184,8 @@
   .addButton {
     width: 100%;
     min-width: auto;
+    font-size: 13px;
+    padding: 10px 12px;
   }
 
   .quantityControls {
@@ -192,10 +194,55 @@
 
   .controlButton {
     flex: 1;
+    min-width: 32px;
+    height: 32px;
+    padding: 6px 8px;
+    font-size: 14px;
   }
 
   .quantityDisplay {
     flex: 1;
-    padding: 8px 12px;
+    padding: 6px 8px;
+    height: 32px;
+  }
+
+  .quantity {
+    font-size: 14px;
+  }
+}
+
+/* Extra small screens like iPhone SE */
+@media (max-width: 380px) {
+  .addButton {
+    font-size: 12px;
+    padding: 8px 10px;
+    min-height: 38px;
+  }
+
+  .quantityControls {
+    width: 100%;
+  }
+
+  .controlButton {
+    min-width: 28px;
+    height: 28px;
+    padding: 4px 6px;
+    font-size: 12px;
+  }
+
+  .quantityDisplay {
+    padding: 4px 6px;
+    height: 28px;
+    min-width: 40px;
+  }
+
+  .quantity {
+    font-size: 12px;
+  }
+
+  .successMessage {
+    font-size: 11px;
+    padding: 6px 10px;
+    top: -35px;
   }
 }

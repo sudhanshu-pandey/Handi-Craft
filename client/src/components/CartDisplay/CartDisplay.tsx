@@ -7,14 +7,12 @@ import styles from './CartDisplay.module.css';
  * CartDisplay Component
  * 
  * Displays the user's shopping cart with all items.
- * Shows active items, saved items, and cart summary.
+ * Shows active items and cart summary.
  * 
  * Features:
  * - Display all cart items with images and prices
  * - Update quantities
  * - Remove items
- * - Save items for later
- * - Separate saved items section
  * - Cart total and item count
  * - Loading and error states
  * - Guest vs authenticated user view
@@ -23,8 +21,8 @@ import styles from './CartDisplay.module.css';
  * <CartDisplay />
  */
 export const CartDisplay: React.FC = () => {
-  const { items, savedItems, total, itemCount, loading, error, 
-    removeFromCart, updateQuantity, toggleSaveForLater, clearError } = useCart();
+  const { items, total, itemCount, loading, error, 
+    removeFromCart, updateQuantity, clearError } = useCart();
   const { isLoggedIn } = useAuth();
 
   React.useEffect(() => {
@@ -150,13 +148,6 @@ export const CartDisplay: React.FC = () => {
                   {/* Actions */}
                   <div className={styles.actions}>
                     <button
-                      onClick={() => toggleSaveForLater(item.productId, true)}
-                      className={styles.saveButton}
-                      title="Save for later"
-                    >
-                      💾 Save
-                    </button>
-                    <button
                       onClick={() => removeFromCart(item.productId)}
                       className={styles.removeButton}
                       title="Remove from cart"
@@ -200,46 +191,6 @@ export const CartDisplay: React.FC = () => {
               </div>
             </div>
           </div>
-
-          {/* Saved Items Section */}
-          {savedItems.length > 0 && (
-            <div className={styles.savedSection}>
-              <h2>Saved for Later ({savedItems.length})</h2>
-              <div className={styles.savedList}>
-                {savedItems.map((item) => (
-                  <div key={item.productId} className={styles.savedItem}>
-                    {item.product?.image && (
-                      <img
-                        src={item.product.image}
-                        alt={item.product?.name}
-                        className={styles.savedImage}
-                      />
-                    )}
-                    <div className={styles.savedDetails}>
-                      <h4>{item.product?.name}</h4>
-                      <p className={styles.savedPrice}>
-                        ₹{item.product?.price}
-                      </p>
-                    </div>
-                    <div className={styles.savedActions}>
-                      <button
-                        onClick={() => toggleSaveForLater(item.productId, false)}
-                        className={styles.moveToCartButton}
-                      >
-                        Move to Cart
-                      </button>
-                      <button
-                        onClick={() => removeFromCart(item.productId)}
-                        className={styles.removeSavedButton}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </>
       )}
     </div>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useAppSelector } from '../store/hooks'
 import { products } from '../data/products'
 import { Address, useCommerce } from '../context/CommerceContext'
 import { useAuth } from '../context/AuthContext'
@@ -15,7 +16,10 @@ type PaymentMethod = 'upi' | 'card' | 'netbanking' | 'cod' | 'razorpay' | 'strip
 const Checkout = () => {
   const navigate = useNavigate()
   const { isLoggedIn, login } = useAuth()
-  const { cart, addresses, upsertAddress, removeAddress, clearCart, createOrder, trackEvent } = useCommerce()
+  const { addresses, upsertAddress, removeAddress, clearCart, createOrder, trackEvent } = useCommerce()
+  
+  // Use Redux cart instead of CommerceContext cart
+  const reduxCart = useAppSelector((state) => state.cart.items)
 
   const [step, setStep] = useState<Step>(1)
   const [selectedAddressId, setSelectedAddressId] = useState('')
@@ -32,14 +36,14 @@ const Checkout = () => {
 
   const activeItems = useMemo(
     () =>
-      cart
-        .filter((entry) => !entry.savedForLater)
-        .map((entry) => {
+      reduxCart
+        .filter((entry: any) => !entry.savedForLater)
+        .map((entry: any) => {
           const product = products.find((item) => item.id === entry.productId)
           return product ? { product, quantity: entry.quantity } : null
         })
-        .filter((entry): entry is { product: (typeof products)[number]; quantity: number } => entry !== null),
-    [cart],
+        .filter((entry: any): entry is { product: (typeof products)[number]; quantity: number } => entry !== null),
+    [reduxCart],
   )
 
   const subtotal = sumCartValue(activeItems)
@@ -105,7 +109,7 @@ const Checkout = () => {
     estimated.setDate(estimated.getDate() + 5)
 
     const newOrder = createOrder({
-      productIds: activeItems.map((entry) => entry.product.id),
+      productIds: activeItems.map((entry: any) => entry.product.id),
       total: finalTotal,
       paymentMethod,
       paymentStatus: 'success',
@@ -261,7 +265,7 @@ const Checkout = () => {
         <div className={styles.checkoutGrid} style={{ gridTemplateColumns: '1.3fr 1fr' }}>
           <section className={styles.card} style={{ padding: 14 }}>
             <h3 style={{ marginBottom: 10 }}>Order summary</h3>
-            {activeItems.map(({ product, quantity }) => (
+            {activeItems.map(({ product, quantity }: any) => (
               <article key={product.id} className={styles.softCard} style={{ padding: 10, marginBottom: 8 }}>
                 <div className={styles.row}>
                   <span style={{ color: 'var(--text-dark)' }}>{product.name} × {quantity}</span>

@@ -87,6 +87,10 @@
   font-family: Georgia, serif;
   line-height: 1.1;
   letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
 }
 
 .brandTagline {

@@ -181,6 +181,11 @@
   .price {
     font-size: var(--font-size-base);
   }
+
+  .buttonGroup {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-sm);
+  }
 }
 
 @media (max-width: 480px) {
@@ -240,8 +245,102 @@
     margin: 0.5rem 0;
   }
 
+  .buttonGroup {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-xs);
+    margin-top: auto;
+  }
+
+  .viewButton {
+    min-height: 36px;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+  }
+
   .content button {
     padding: 8px 12px;
     font-size: 0.875rem;
+  }
+}
+
+/* Extra small screens like iPhone SE */
+@media (max-width: 380px) {
+  .card {
+    border-radius: var(--radius-sm);
+  }
+
+  .imageWrapper {
+    height: 140px;
+  }
+
+  .saleBadge {
+    padding: 3px 6px;
+    font-size: 0.65rem;
+    top: 6px;
+    left: 6px;
+  }
+
+  .category {
+    padding: 3px 6px;
+    font-size: 0.65rem;
+    top: 6px;
+    right: 6px;
+  }
+
+  .content {
+    padding: 8px;
+  }
+
+  .content h3 {
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+
+  .priceSection {
+    margin: 4px 0;
+  }
+
+  .originalPrice {
+    font-size: 0.7rem;
+    margin-right: 4px;
+  }
+
+  .discount {
+    font-size: 0.65rem;
+    padding: 1px 3px;
+  }
+
+  .price {
+    font-size: 0.95rem;
+    margin: 2px 0;
+    font-weight: 700;
+  }
+
+  .gst {
+    font-size: 0.65rem;
+  }
+
+  .rating {
+    font-size: 0.65rem;
+    margin: 4px 0;
+  }
+
+  .buttonGroup {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    margin-top: auto;
+  }
+
+  .viewButton {
+    min-height: 34px;
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .content button {
+    padding: 6px 10px;
+    font-size: 0.8rem;
   }
 }
