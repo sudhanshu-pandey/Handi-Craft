@@ -9,8 +9,16 @@ export const calculateDiscountPercent = (price: number, originalPrice?: number) 
   return Math.round(((originalPrice - price) / originalPrice) * 100)
 }
 
-export const getStockCount = (productId: number) => {
-  const seed = (productId * 13) % 10
+export const getStockCount = (productId: number | string) => {
+  // Handle both numeric and string IDs
+  let numericId = typeof productId === 'string' ? productId.charCodeAt(0) : productId
+  
+  // Fallback to a default if numericId is invalid
+  if (isNaN(numericId) || numericId === 0) {
+    numericId = 15
+  }
+  
+  const seed = (numericId * 13) % 10
   return seed < 3 ? seed + 1 : seed + 3
 }
 

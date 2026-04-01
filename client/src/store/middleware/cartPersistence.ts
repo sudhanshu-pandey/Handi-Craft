@@ -12,22 +12,25 @@ const WISHLIST_STORAGE_KEY = 'hc_wishlist_v1';
 export const cartPersistenceMiddleware: Middleware<
   (action: any) => any,
   RootState
-> = (store) => (next) => (action) => {
+> = (store) => (next) => (action: any) => {
   // Call the reducer
   const result = next(action);
 
-  // Save to localStorage after state updates
-  const state = store.getState();
-  try {
-    // Persist cart
-    const cartData = state.cart.items;
-    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartData));
+  // Save to localStorage after state updates for cart and wishlist actions
+  const actionType = action?.type || '';
+  if (actionType.includes('cart') || actionType.includes('wishlist')) {
+    const state = store.getState();
+    try {
+      // Persist cart (always save, even if empty - ensures localStorage stays in sync)
+      const cartData = state.cart.items;
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartData));
 
-    // Persist wishlist
-    const wishlistData = state.wishlist.items;
-    localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(wishlistData));
-  } catch (error) {
-    console.error('Failed to persist state to localStorage:', error);
+      // Persist wishlist (always save, even if empty)
+      const wishlistData = state.wishlist.items;
+      localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(wishlistData));
+    } catch (error) {
+      // Failed to persist state to localStorage
+    }
   }
 
   return result;
@@ -40,9 +43,9 @@ export const cartPersistenceMiddleware: Middleware<
 export const loadCartFromLocalStorage = () => {
   try {
     const data = localStorage.getItem(CART_STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
+    const parsed = data ? JSON.parse(data) : [];
+    return parsed;
   } catch (error) {
-    console.error('Failed to load cart from localStorage:', error);
     return [];
   }
 };
@@ -54,9 +57,9 @@ export const loadCartFromLocalStorage = () => {
 export const loadWishlistFromLocalStorage = () => {
   try {
     const data = localStorage.getItem(WISHLIST_STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
+    const parsed = data ? JSON.parse(data) : [];
+    return parsed;
   } catch (error) {
-    console.error('Failed to load wishlist from localStorage:', error);
     return [];
   }
 };

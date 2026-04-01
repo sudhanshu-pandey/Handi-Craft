@@ -162,6 +162,80 @@ const deleteProduct = async (req, res) => {
   }
 };
 
+// Update stock for multiple products (after order placement)
+const updateStock = async (req, res) => {
+  try {
+    const { items } = req.body;
+    
+    if (!items || !Array.isArray(items)) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Invalid items array' });
+    }
+
+    // Update stock for each item
+    const updates = [];
+    for (const item of items) {
+      const { productId, quantity } = item;
+      
+      if (!productId || !quantity) {
+        continue;
+      }
+
+      try {
+        // Find product by id or _id
+        // Try to find by _id first (most common case)
+        let product = null;
+        
+        try {
+          // Try to find by MongoDB ObjectId (_id field)
+          product = await Product.findById(productId);
+        } catch (err) {
+          // ObjectId parse failed, will try numeric id
+        }
+        
+        // If not found by _id, try to find by numeric id field
+        if (!product) {
+          product = await Product.findOne({ id: productId });
+        }
+        
+        if (!product) {
+          continue;
+        }
+
+        const previousStock = product.stock || 0;
+        const newStock = Math.max(0, previousStock - quantity);
+
+        // Update product stock
+        await Product.findByIdAndUpdate(
+          product._id,
+          { stock: newStock },
+          { new: true }
+        );
+
+        updates.push({
+          productId,
+          previousStock,
+          newStock,
+          quantitySold: quantity
+        });
+      } catch (error) {
+        // Stock update error
+      }
+    }
+
+    res.json({
+      message: 'Stock updated successfully',
+      updates,
+      totalUpdated: updates.length
+    });
+  } catch (err) {
+    // Stock update error
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      message: 'Failed to update stock',
+      error: err.message
+    });
+  }
+};
+
 export default {
   getAllProducts,
   getProductById,
@@ -170,5 +244,6 @@ export default {
   filterProducts,
   createProduct,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  updateStock
 };

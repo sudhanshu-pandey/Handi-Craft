@@ -516,6 +516,21 @@
   color: var(--text-dark);
 }
 
+.orderItems {
+  margin: 0.3rem 0 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.orderItems .orderItem {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-dark);
+  line-height: 1.4;
+}
+
 .orderMeta {
   display: flex;
   justify-content: space-between;

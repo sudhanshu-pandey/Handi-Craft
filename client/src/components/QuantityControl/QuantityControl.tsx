@@ -2,11 +2,14 @@ import React, { useCallback, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { addItem, updateQuantity, removeItem } from '../../store/slices/cartSlice';
 import type { CartItem } from '../../store/slices/cartSlice';
+import { getStockCount } from '../../utils/commerce';
+import { useToast } from '../../context/ToastContext';
 import styles from './QuantityControl.module.css';
 
 interface QuantityControlProps {
-  productId: number;
+  productId: number | string;
   initialQuantity?: number;
+  stock?: number;  // Optional: use real stock from API if available
   onQuantityChange?: (quantity: number) => void;
 }
 
@@ -20,12 +23,17 @@ interface QuantityControlProps {
 export const QuantityControl: React.FC<QuantityControlProps> = ({
   productId,
   initialQuantity = 0,
+  stock,
   onQuantityChange,
 }) => {
   const dispatch = useAppDispatch();
   const cartItems = useAppSelector((state) => state.cart.items);
+  const { showToast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // Use real stock from API if provided, otherwise calculate
+  const stockCount = stock !== undefined ? stock : getStockCount(productId);
 
   // Get current quantity from Redux store
   const cartItem = cartItems.find((item: CartItem) => item.productId === productId);
@@ -37,6 +45,12 @@ export const QuantityControl: React.FC<QuantityControlProps> = ({
   const handleAddToCart = useCallback(() => {
     if (isLoading) return;
     
+    // Check if stock is available
+    if (1 > stockCount) {
+      showToast('❌ Out of stock', 'error');
+      return;
+    }
+    
     setIsLoading(true);
     try {
       dispatch(addItem({ productId, quantity: 1 }));
@@ -46,11 +60,17 @@ export const QuantityControl: React.FC<QuantityControlProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [productId, dispatch, onQuantityChange]);
+  }, [productId, stockCount, dispatch, onQuantityChange, showToast]);
 
   // Increment quantity
   const handleIncrement = useCallback(() => {
-    if (isLoading || currentQuantity >= 999) return;
+    if (isLoading) return;
+
+    // Check if adding one more would exceed stock
+    if (currentQuantity + 1 > stockCount) {
+      showToast(`❌ Only ${stockCount} in stock`, 'error');
+      return;
+    }
 
     const newQuantity = currentQuantity + 1;
     setIsLoading(true);
@@ -61,7 +81,7 @@ export const QuantityControl: React.FC<QuantityControlProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [productId, currentQuantity, dispatch, onQuantityChange]);
+  }, [productId, currentQuantity, stockCount, dispatch, onQuantityChange, showToast]);
 
   // Decrement quantity
   const handleDecrement = useCallback(() => {
@@ -125,7 +145,7 @@ export const QuantityControl: React.FC<QuantityControlProps> = ({
           {/* Increment Button */}
           <button
             onClick={handleIncrement}
-            disabled={isLoading || currentQuantity >= 999}
+            disabled={isLoading}
             className={`${styles.controlButton} ${styles.incrementButton}`}
             aria-label="Increase quantity"
           >

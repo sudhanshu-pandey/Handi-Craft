@@ -4,14 +4,15 @@ import QuantityControl from '../QuantityControl/QuantityControl'
 import styles from './ProductCard.module.css'
 
 interface Product {
-  id: number
+  id?: number
+  _id?: string | number
   name: string
   price: number
   originalPrice?: number
   image: string
   category: string
   sale?: boolean
-  _id?: string | number
+  stock?: number
 }
 
 interface ProductCardProps {
@@ -22,11 +23,15 @@ const ProductCard = memo(({ product }: ProductCardProps) => {
   const discount = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : 0
+  
+  // Use numeric id if available, otherwise use MongoDB _id as string
+  const productId = product.id || (typeof product._id === 'string' ? product._id : String(product._id))
+  const navigateId = product.id || product._id
 
   return (
     <div className={styles.card}>
       <div className={styles.imageWrapper}>
-        <Link to={`/products/${product.id}`} aria-label={`View ${product.name}`}>
+        <Link to={`/products/${navigateId}`} aria-label={`View ${product.name}`}>
           <img src={product.image} alt={product.name} loading="lazy" />
         </Link>
         {product.sale && <span className={styles.saleBadge}>SALE!</span>}
@@ -51,9 +56,10 @@ const ProductCard = memo(({ product }: ProductCardProps) => {
         </div>
         <div className={styles.buttonGroup}>
           <QuantityControl 
-            productId={typeof product.id === 'number' ? product.id : parseInt(String(product.id), 10)}
+            productId={productId}
+            stock={product.stock}
           />
-          <Link to={`/products/${product.id}`} className={styles.viewButton}>
+          <Link to={`/products/${navigateId}`} className={styles.viewButton}>
             View
           </Link>
         </div>

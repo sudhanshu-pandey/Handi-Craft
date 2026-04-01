@@ -1,5 +1,6 @@
 import React from 'react';
-import { useCommerce } from '../../context/CommerceContext';
+import { useAppDispatch } from '../../store/hooks';
+import { addItem } from '../../store/slices/cartSlice';
 import styles from './AddToCartButton.module.css';
 
 interface AddToCartButtonProps {
@@ -10,31 +11,23 @@ interface AddToCartButtonProps {
 /**
  * AddToCartButton Component
  * Displays an "Add to Cart" button with quantity selector.
- * Supports both guest and authenticated users.
+ * Uses Redux for state management.
  */
 export const AddToCartButton: React.FC<AddToCartButtonProps> = ({
   productId,
 }) => {
-  const { addToCart } = useCommerce();
+  const dispatch = useAppDispatch();
   const [showSuccess, setShowSuccess] = React.useState(false);
 
   const handleAddToCart = () => {
     if (!productId) {
-      console.error('❌ Product ID is missing');
-      return;
-    }
-
-    // Convert productId to number for CommerceContext
-    const numericId = typeof productId === 'string' ? parseInt(productId, 10) : productId;
-    
-    if (isNaN(numericId)) {
-      console.error('❌ Invalid Product ID:', productId);
       return;
     }
 
     try {
-      // CommerceContext addToCart doesn't return a result, it just updates state
-      addToCart(numericId, 1);
+      // Dispatch Redux action to add item to cart
+      // Keep productId as-is (could be string or number)
+      dispatch(addItem({ productId, quantity: 1 }));
 
       // Show success message
       setShowSuccess(true);
@@ -42,7 +35,7 @@ export const AddToCartButton: React.FC<AddToCartButtonProps> = ({
       // Clear success message after 2 seconds
       setTimeout(() => setShowSuccess(false), 2000);
     } catch (err) {
-      console.error('❌ Error adding to cart:', err);
+      // Error adding to cart
     }
   };
 

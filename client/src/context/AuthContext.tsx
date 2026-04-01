@@ -3,14 +3,15 @@ import api from '../services/api'
 import { clearLocalCart } from '../utils/cartStorage'
 
 export type Address = {
-  id: string
+  id?: string
   label: string
   line1: string
-  line2: string
+  line2?: string
   city: string
   state: string
   pincode: string
-  isDefault: boolean
+  landmark?: string
+  isDefault?: boolean
 }
 
 export type UserProfile = {
@@ -62,10 +63,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (wasLoggedIn && profile) {
           setIsLoggedIn(true)
           setUserProfile(profile)
+          
+          // Refresh profile from API in the background
+          const refreshProfile = async () => {
+            try {
+              const profileResponse = await api.getUserProfile()
+              const dbProfile = profileResponse.user
+              
+              const updatedProfile: UserProfile = {
+                name: dbProfile.name || profile.name,
+                email: dbProfile.email || profile.email,
+                mobile: dbProfile.phone || profile.mobile,
+                gender: dbProfile.gender || profile.gender,
+                dob: dbProfile.dob || profile.dob,
+                addresses: dbProfile.addresses || profile.addresses,
+              }
+              
+              setUserProfile(updatedProfile)
+              
+              // Update localStorage with fresh profile
+              localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+                isLoggedIn: true,
+                profile: updatedProfile,
+              }))
+            } catch (err) {
+              // Keep the stored profile if refresh fails
+            }
+          }
+          
+          refreshProfile()
         }
       }
     } catch (err) {
-      console.error('❌ [AuthContext] Error restoring auth state:', err)
+      // Error restoring auth state
     }
   }, [])
 
@@ -85,7 +115,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setUserProfile(profile)
           }
         } catch (err) {
-          console.error('❌ [AuthContext] Error syncing auth across tabs:', err)
+          // Error syncing auth across tabs
         }
       }
     }
@@ -149,7 +179,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }))
         } catch (profileErr) {
           // If profile fetch fails, use default profile
-          console.warn('⚠️ [AuthContext] Could not fetch profile, using default:', profileErr)
           const profile = buildDefaultProfile(phone)
           setUserProfile(profile)
           
@@ -197,8 +226,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Then notify server
       await api.logout()
     } catch (err) {
-      console.error('Logout error:', err)
-      // Still clear local state even if server call fails
+      // Logout error - still clear local state
     } finally {
       setIsLoggedIn(false)
       setUserProfile(null)

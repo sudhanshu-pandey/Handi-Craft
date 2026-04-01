@@ -4,6 +4,8 @@ import { useAppDispatch, useAppSelector } from './store/hooks'
 import { loadCart } from './store/slices/cartSlice'
 import { loadWishlist, addItem as addToWishlist } from './store/slices/wishlistSlice'
 import { loadCartFromLocalStorage, loadWishlistFromLocalStorage } from './store/middleware/cartPersistence'
+import { ToastProvider } from './context/ToastContext'
+import useSyncAddresses from './hooks/useSyncAddresses'
 import api from './services/api'
 import TopHeader from './components/TopHeader/TopHeader.tsx'
 import Navbar from './components/Navbar/Navbar.tsx'
@@ -24,6 +26,9 @@ function App() {
   const dispatch = useAppDispatch()
   const cartItems = useAppSelector((state) => state.cart.items)
   const wishlistItems = useAppSelector((state) => state.wishlist.items)
+
+  // Sync addresses from backend to Redux on login
+  useSyncAddresses()
 
   // Load cart and wishlist from localStorage on app start
   useEffect(() => {
@@ -65,7 +70,7 @@ function App() {
           })
         }
       } catch (error) {
-        console.error('❌ [App] Cart sync failed:', error)
+        // Cart sync failed
       }
     }
 
@@ -74,31 +79,33 @@ function App() {
   }, [cartItems])
 
   return (
-    <Router>
-      <div className="app">
-        <TopHeader />
-        <Header />
-        <Navbar />
-        
-        <main>
-          <Suspense fallback={<div className="container" style={{ padding: '26px 0' }}>Loading...</div>}>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/products/:id" element={<ProductDetails />} />
-              <Route path="/cart" element={<Cart />} />
-              <Route path="/checkout" element={<Checkout />} />
-              <Route path="/order-tracking/:orderId" element={<OrderTracking />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/donate" element={<Donate />} />
-            </Routes>
-          </Suspense>
-        </main>
-        
-        <Footer />
-      </div>
-    </Router>
+    <ToastProvider>
+      <Router>
+        <div className="app">
+          <TopHeader />
+          <Header />
+          <Navbar />
+          
+          <main>
+            <Suspense fallback={<div className="container" style={{ padding: '26px 0' }}>Loading...</div>}>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/products" element={<Products />} />
+                <Route path="/products/:id" element={<ProductDetails />} />
+                <Route path="/cart" element={<Cart />} />
+                <Route path="/checkout" element={<Checkout />} />
+                <Route path="/order-tracking/:orderId" element={<OrderTracking />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/donate" element={<Donate />} />
+              </Routes>
+            </Suspense>
+          </main>
+          
+          <Footer />
+        </div>
+      </Router>
+    </ToastProvider>
   )
 }
 

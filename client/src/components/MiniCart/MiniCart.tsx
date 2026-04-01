@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { products } from '../../data/products'
 import { useAppSelector, useAppDispatch } from '../../store/hooks'
 import { removeItem, type CartItem } from '../../store/slices/cartSlice'
 import { formatCurrency } from '../../utils/commerce'
+import useProducts from '../../hooks/useProducts'
 import styles from './MiniCart.module.css'
 
 const MiniCart = () => {
@@ -11,17 +11,33 @@ const MiniCart = () => {
   const dispatch = useAppDispatch()
   const items = useAppSelector((state) => state.cart.items)
   const navigate = useNavigate()
+  const { allProducts, loadProducts } = useProducts()
+
+  // Load products on mount
+  useEffect(() => {
+    if (allProducts.length === 0) {
+      loadProducts(1, 1000)
+    }
+  }, [allProducts.length, loadProducts])
 
   const activeItems = useMemo(
-    () =>
-      items
+    () => {
+      return items
         .filter((item: CartItem) => !item.savedForLater)
         .map((item: CartItem) => {
-          const product = products.find((entry) => entry.id === item.productId)
+          const itemIdStr = String(item.productId)
+          // Try to find product by ID match
+          let product = allProducts.find((p: any) => {
+            const pid = p.id !== undefined ? String(p.id) : null
+            const p_id = p._id !== undefined ? String(p._id) : null
+            return pid === itemIdStr || p_id === itemIdStr
+          })
+          
           return product ? { product, quantity: item.quantity } : null
         })
-        .filter((item: any): item is { product: (typeof products)[number]; quantity: number } => item !== null),
-    [items],
+        .filter((item: any): item is { product: any; quantity: number } => item !== null)
+    },
+    [items, allProducts],
   )
 
   const totalItems = activeItems.reduce((sum: number, item: any) => sum + item.quantity, 0)
@@ -82,20 +98,20 @@ const MiniCart = () => {
             ) : (
               <>
                 <div className={styles.itemList}>
-                  {activeItems.slice(0, 5).map(({ product, quantity }: { product: typeof products[0]; quantity: number }) => (
-                    <div className={styles.item} key={product.id}>
-                      <Link to={`/products/${product.id}`} onClick={close}>
+                  {activeItems.slice(0, 5).map(({ product, quantity }: { product: any; quantity: number }) => (
+                    <div className={styles.item} key={product.id || product._id}>
+                      <Link to={`/products/${product.id || product._id}`} onClick={close}>
                         <img src={product.image} alt={product.name} className={styles.itemImg} loading="lazy" />
                       </Link>
                       <div className={styles.itemInfo}>
-                        <Link to={`/products/${product.id}`} className={styles.itemName} onClick={close}>
+                        <Link to={`/products/${product.id || product._id}`} className={styles.itemName} onClick={close}>
                           {product.name}
                         </Link>
                         <p className={styles.itemMeta}>Qty: {quantity} · {formatCurrency(product.price)}</p>
                       </div>
                       <div className={styles.itemRight}>
                         <strong className={styles.itemTotal}>{formatCurrency(product.price * quantity)}</strong>
-                        <button type="button" className={styles.removeBtn} onClick={() => dispatch(removeItem(product.id))} aria-label={`Remove ${product.name}`}>✕</button>
+                        <button type="button" className={styles.removeBtn} onClick={() => dispatch(removeItem(product.id || product._id))} aria-label={`Remove ${product.name}`}>✕</button>
                       </div>
                     </div>
                   ))}

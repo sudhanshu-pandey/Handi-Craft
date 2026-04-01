@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import CategoryGrid from '../components/CategoryGrid/CategoryGrid'
 import BenefitsSection from '../components/BenefitsSection/BenefitsSection'
 import TestimonialCarousel from '../components/TestimonialCarousel/TestimonialCarousel'
 import ProductCard from '../components/ProductCard/ProductCard'
+import useProducts from '../hooks/useProducts'
+import { categories as allCategories } from '../data/products'
 import styles from './pages.module.css'
-import { products as allProducts, categories as allCategories, Product } from '../data/products'
 
 interface Testimonial {
   id: number
@@ -16,8 +17,14 @@ interface Testimonial {
 }
 
 const Home = () => {
-  const [products] = useState(() => allProducts.slice(0, 6))
+  const { loadProducts, getFirstProducts, loading, error } = useProducts()
   const [categories] = useState(() => allCategories)
+  const products = getFirstProducts(6)
+
+  // Fetch products on component mount
+  useEffect(() => {
+    loadProducts(1, 20)
+  }, [loadProducts])
 
   const [benefits] = useState([
     {
@@ -96,19 +103,44 @@ const Home = () => {
       <section className={styles.arrivals}>
         <div className="container">
           <h2 className={styles.sectionTitle}>New Arrivals</h2>
-          <div className={styles.productsGrid}>
-            {products.map((product: Product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-              />
-            ))}
-          </div>
-          <div style={{ textAlign: 'center', marginTop: 'var(--spacing-lg)' }}>
-            <a href="/products" className="btn btn-primary">
-              View All Products
-            </a>
-          </div>
+          
+          {error && (
+            <div style={{ padding: '20px', color: '#d32f2f', textAlign: 'center', marginBottom: '20px' }}>
+              ❌ Failed to load products: {error}
+            </div>
+          )}
+
+          {loading ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+              ⏳ Loading products...
+            </div>
+          ) : (
+            <>
+              <div className={styles.productsGrid}>
+                {products.map((product: any) => (
+                  <ProductCard
+                    key={product._id || product.id}
+                    product={{
+                      id: product.id,
+                      _id: product._id,
+                      name: product.name,
+                      price: product.price,
+                      originalPrice: product.originalPrice,
+                      image: product.image,
+                      category: product.category,
+                      sale: product.sale,
+                      stock: product.stock
+                    }}
+                  />
+                ))}
+              </div>
+              <div style={{ textAlign: 'center', marginTop: 'var(--spacing-lg)' }}>
+                <a href="/products" className="btn btn-primary">
+                  View All Products
+                </a>
+              </div>
+            </>
+          )}
         </div>
       </section>
 

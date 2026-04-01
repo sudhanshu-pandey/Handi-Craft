@@ -46,7 +46,6 @@ export const getAllCoupons = async (): Promise<CouponResponse[]> => {
     const response = await api.request('/coupons')
     return response.data || []
   } catch (error: any) {
-    console.error('🔴 [CouponAPI] Failed to fetch coupons:', error.message)
     throw new Error(error.message || 'Failed to fetch coupons')
   }
 }
@@ -72,7 +71,6 @@ export const verifyCoupon = async (
     })
     return response
   } catch (error: any) {
-    console.error('🔴 [CouponAPI] Coupon verification failed:', error.message)
     const errorMessage = error.message || 'Failed to verify coupon'
     return {
       success: false,
@@ -91,7 +89,6 @@ export const getCouponByCode = async (code: string): Promise<CouponResponse | nu
     const response = await api.request(`/coupons/${code}`)
     return response.data || null
   } catch (error: any) {
-    console.error('🔴 [CouponAPI] Failed to fetch coupon details:', error.message)
     return null
   }
 }

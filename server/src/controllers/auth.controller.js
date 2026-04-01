@@ -59,7 +59,6 @@ export const sendOTP = async (req, res) => {
 
     res.json({ message: AUTH_MESSAGES.OTP_SENT });
   } catch (error) {
-    console.log(error);
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: error.message });
   }
 };

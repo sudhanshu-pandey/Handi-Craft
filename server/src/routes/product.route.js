@@ -11,6 +11,9 @@ router.get('/search', productController.searchProducts);
 // Filter products
 router.post('/filter', productController.filterProducts);
 
+// Update stock (after order placement)
+router.post('/update-stock', productController.updateStock);
+
 // Get all products
 router.get('/', productController.getAllProducts);
 

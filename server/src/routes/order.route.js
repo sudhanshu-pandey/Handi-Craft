@@ -3,6 +3,9 @@ import orderController from "../controllers/order.controller.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 const router = express.Router();
 
+// Create new order
+router.post("/", authMiddleware, orderController.createOrder);
+
 // Get all orders for user
 router.get("/", authMiddleware, orderController.getOrders);
 

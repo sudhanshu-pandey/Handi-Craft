@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAppSelector } from '../store/hooks'
-import { products } from '../data/products'
-import { Address, useCommerce } from '../context/CommerceContext'
+import { useAppSelector, useAppDispatch } from '../store/hooks'
+import { clearCart as clearReduxCart } from '../store/slices/cartSlice'
+import { addNewAddress, updateAddressAsync, deleteAddressAsync } from '../store/slices/addressSlice'
+import { useCommerce } from '../context/CommerceContext'
 import { useAuth } from '../context/AuthContext'
+import useProducts from '../hooks/useProducts'
 import LoginModal from '../components/LoginModal/LoginModal'
 import AddressForm from '../components/AddressForm/AddressForm'
 import { formatCurrency, sumCartValue, sumOriginalCartValue } from '../utils/commerce'
+import api from '../services/api'
 import styles from './commerce.module.css'
 
 type Step = 1 | 2 | 3
@@ -15,15 +18,18 @@ type PaymentMethod = 'upi' | 'card' | 'netbanking' | 'cod' | 'razorpay' | 'strip
 
 const Checkout = () => {
   const navigate = useNavigate()
+  const dispatch = useAppDispatch()
   const { isLoggedIn, login } = useAuth()
-  const { addresses, upsertAddress, removeAddress, clearCart, createOrder, trackEvent } = useCommerce()
+  const { clearCart, trackEvent } = useCommerce()
   
-  // Use Redux cart instead of CommerceContext cart
+  // Use Redux cart and addresses
   const reduxCart = useAppSelector((state) => state.cart.items)
+  const { addresses: reduxAddresses, loading: addressesLoading } = useAppSelector((state: any) => state.address)
+  const { allProducts, loadProducts } = useProducts()
 
   const [step, setStep] = useState<Step>(1)
   const [selectedAddressId, setSelectedAddressId] = useState('')
-  const [editingAddress, setEditingAddress] = useState<Address | null>(null)
+  const [editingAddress, setEditingAddress] = useState<any>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('upi')
   const [upiId, setUpiId] = useState('')
@@ -34,16 +40,32 @@ const Checkout = () => {
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'success' | 'failed'>('idle')
   const [isLoginOpen, setIsLoginOpen] = useState(false)
 
+  // Load products on mount
+  useEffect(() => {
+    if (allProducts.length === 0) {
+      loadProducts(1, 1000)
+    }
+  }, [allProducts.length, loadProducts])
+
+  // Addresses are synced to Redux automatically via useSyncAddresses hook in App.tsx
+  // No need to fetch here
+
   const activeItems = useMemo(
-    () =>
-      reduxCart
+    () => {
+      return reduxCart
         .filter((entry: any) => !entry.savedForLater)
         .map((entry: any) => {
-          const product = products.find((item) => item.id === entry.productId)
+          const itemIdStr = String(entry.productId)
+          const product = allProducts.find((p: any) => {
+            const pid = p.id !== undefined ? String(p.id) : null
+            const p_id = p._id !== undefined ? String(p._id) : null
+            return pid === itemIdStr || p_id === itemIdStr
+          })
           return product ? { product, quantity: entry.quantity } : null
         })
-        .filter((entry: any): entry is { product: (typeof products)[number]; quantity: number } => entry !== null),
-    [reduxCart],
+        .filter((entry: any): entry is { product: any; quantity: number } => entry !== null)
+    },
+    [reduxCart, allProducts],
   )
 
   const subtotal = sumCartValue(activeItems)
@@ -63,20 +85,30 @@ const Checkout = () => {
   }, [activeItems.length, finalTotal, trackEvent])
 
   useEffect(() => {
-    const defaultAddress = addresses.find((entry) => entry.isDefault) ?? addresses[0]
+    const defaultAddress = reduxAddresses.find((entry: any) => entry.isDefault) ?? reduxAddresses[0]
     if (defaultAddress && !selectedAddressId) {
-      setSelectedAddressId(defaultAddress.id)
+      setSelectedAddressId(defaultAddress._id || defaultAddress.id)
     }
-    if (addresses.length === 0) {
+    if (reduxAddresses.length === 0) {
       setShowAddForm(true)
     }
-  }, [addresses, selectedAddressId])
+  }, [reduxAddresses, selectedAddressId])
 
-  const handleAddressSubmit = (address: Address) => {
-    upsertAddress(address)
-    setSelectedAddressId(address.id)
-    setEditingAddress(null)
-    setShowAddForm(false)
+  const handleAddressSubmit = async (address: any) => {
+    try {
+      if (editingAddress?._id) {
+        // Update existing address
+        await dispatch(updateAddressAsync({ addressId: editingAddress._id, data: address }) as any)
+      } else {
+        // Add new address
+        await dispatch(addNewAddress(address) as any)
+      }
+      setSelectedAddressId(address._id || address.id)
+      setEditingAddress(null)
+      setShowAddForm(false)
+    } catch (error: any) {
+      // Error handled by Redux state
+    }
   }
 
   const proceedToPayment = () => {
@@ -99,7 +131,7 @@ const Checkout = () => {
     return true
   }
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (!validatePayment() || !selectedAddressId || activeItems.length === 0) {
       setPaymentStatus('failed')
       return
@@ -108,19 +140,57 @@ const Checkout = () => {
     const estimated = new Date()
     estimated.setDate(estimated.getDate() + 5)
 
-    const newOrder = createOrder({
-      productIds: activeItems.map((entry: any) => entry.product.id),
-      total: finalTotal,
-      paymentMethod,
-      paymentStatus: 'success',
-      estimatedDelivery: estimated.toISOString(),
-      status: 'shipped',
-      addressId: selectedAddressId,
-    })
+    // Prepare order items with product IDs and quantities
+    const orderItems = activeItems.map((entry: any) => ({
+      productId: entry.product.id || entry.product._id,
+      quantity: entry.quantity,
+    }))
 
-    setPaymentStatus('success')
-    clearCart()
-    window.setTimeout(() => navigate(`/order-tracking/${newOrder.id}`), 900)
+    // Get address details
+    const selectedAddress = reduxAddresses.find((a: any) => a._id === selectedAddressId || a.id === selectedAddressId)
+
+    try {
+      // Create order in database via API
+      const orderResponse = await api.request('/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          items: orderItems,
+          total: finalTotal,
+          subtotal: subtotal,
+          discount: discount,
+          deliveryFee: deliveryFee,
+          paymentMethod,
+          paymentStatus: 'success',
+          estimatedDelivery: estimated.toISOString(),
+          address: selectedAddress,
+          couponCode: null,
+        }),
+      })
+      
+      const newOrder = orderResponse.order
+
+      // Update stock in database
+      try {
+        await api.request('/products/update-stock', {
+          method: 'POST',
+          body: JSON.stringify({ items: orderItems }),
+        })
+      } catch (error) {
+        // Stock update failed, but order was created
+      }
+
+      setPaymentStatus('success')
+      
+      // Clear Redux cart
+      dispatch(clearReduxCart())
+      
+      // Clear CommerceContext cart
+      clearCart()
+      
+      window.setTimeout(() => navigate(`/order-tracking/${newOrder._id}`), 900)
+    } catch (error) {
+      setPaymentStatus('failed')
+    }
   }
 
   if (activeItems.length === 0 && paymentStatus !== 'success') {
@@ -174,29 +244,29 @@ const Checkout = () => {
           <section className={styles.card} style={{ padding: 14 }}>
             <h3 style={{ marginBottom: 10 }}>Delivery address</h3>
 
-            {addresses.map((address) => (
-              <article className={styles.softCard} style={{ padding: 12, marginBottom: 10 }} key={address.id}>
+            {reduxAddresses.map((address: any) => (
+              <article className={styles.softCard} style={{ padding: 12, marginBottom: 10 }} key={address._id || address.id}>
                 <div className={styles.row}>
                   <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', flex: 1 }}>
                     <input
                       type="radio"
                       name="selected-address"
                       style={{ marginTop: 4 }}
-                      checked={selectedAddressId === address.id}
+                      checked={selectedAddressId === (address._id || address.id)}
                       onChange={() => {
-                        setSelectedAddressId(address.id)
+                        setSelectedAddressId(address._id || address.id)
                         setShowAddForm(false)
                         setEditingAddress(null)
                       }}
                     />
                     <div>
-                      <strong style={{ color: 'var(--text-dark)' }}>{address.fullName}</strong>
+                      <strong style={{ color: 'var(--text-dark)' }}>{address.label}</strong>
                       {address.isDefault && (
                         <span style={{ marginLeft: 6, fontSize: 11, padding: '2px 6px', borderRadius: 999, background: 'color-mix(in srgb, var(--primary) 14%, var(--bg-white))', color: 'var(--primary)', fontWeight: 700 }}>Default</span>
                       )}
                       <p style={{ margin: '2px 0' }}>{address.line1}{address.line2 ? `, ${address.line2}` : ''}</p>
                       <p style={{ margin: '2px 0' }}>{address.city}, {address.state} – {address.pincode}</p>
-                      <p style={{ margin: '2px 0' }}>{address.phone}</p>
+                      {address.landmark && <p style={{ margin: '2px 0', fontSize: '12px', color: 'var(--text-light)' }}>Landmark: {address.landmark}</p>}
                     </div>
                   </label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -207,7 +277,14 @@ const Checkout = () => {
                     >
                       Edit
                     </button>
-                    <button type="button" className={styles.ghostBtn} onClick={() => removeAddress(address.id)}>Delete</button>
+                    <button 
+                      type="button" 
+                      className={styles.ghostBtn} 
+                      onClick={() => dispatch(deleteAddressAsync(address._id || address.id) as any)}
+                      disabled={addressesLoading}
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               </article>
@@ -241,10 +318,10 @@ const Checkout = () => {
             <h3 style={{ marginBottom: 8 }}>Order quick summary</h3>
             <div className={styles.row}><span>Items</span><span>{activeItems.length}</span></div>
             <div className={styles.row}><span>Total</span><span>{formatCurrency(finalTotal)}</span></div>
-            {!selectedAddressId && addresses.length > 0 && (
+            {!selectedAddressId && reduxAddresses.length > 0 && (
               <p style={{ color: 'var(--error-color)', fontSize: 13, marginTop: 8, fontWeight: 600 }}>Please select a delivery address.</p>
             )}
-            {!selectedAddressId && addresses.length === 0 && (
+            {!selectedAddressId && reduxAddresses.length === 0 && (
               <p style={{ color: 'var(--text-light)', fontSize: 13, marginTop: 8 }}>Add an address to continue.</p>
             )}
             <button
@@ -266,7 +343,7 @@ const Checkout = () => {
           <section className={styles.card} style={{ padding: 14 }}>
             <h3 style={{ marginBottom: 10 }}>Order summary</h3>
             {activeItems.map(({ product, quantity }: any) => (
-              <article key={product.id} className={styles.softCard} style={{ padding: 10, marginBottom: 8 }}>
+              <article key={product.id || product._id} className={styles.softCard} style={{ padding: 10, marginBottom: 8 }}>
                 <div className={styles.row}>
                   <span style={{ color: 'var(--text-dark)' }}>{product.name} × {quantity}</span>
                   <span>{formatCurrency(product.price * quantity)}</span>

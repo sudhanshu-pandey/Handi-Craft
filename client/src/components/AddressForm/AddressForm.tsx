@@ -7,14 +7,8 @@ import styles from './AddressForm.module.css'
 /* ─── validation helpers ─────────────────────────────────── */
 
 const validators = {
-  fullName: (v: string) => {
-    if (!v.trim()) return 'Name is required'
-    if (v.trim().length < 3) return 'Name must be at least 3 characters'
-    return ''
-  },
-  phone: (v: string) => {
-    if (!v.trim()) return 'Phone is required'
-    if (!/^\d{10}$/.test(v.trim())) return 'Enter a valid 10-digit phone number'
+  label: (v: string) => {
+    if (!v.trim()) return 'Label is required'
     return ''
   },
   pincode: (v: string) => {
@@ -59,17 +53,14 @@ const AddressForm = ({
   onSubmit,
   onCancel,
 }: AddressFormProps) => {
-  const [form, setForm] = useState<Address>({
-    id: initialAddress.id ?? '',
-    fullName: initialAddress.fullName ?? '',
-    phone: initialAddress.phone ?? '',
-    line1: initialAddress.line1 ?? '',
-    line2: initialAddress.line2 ?? '',
-    city: initialAddress.city ?? '',
-    state: initialAddress.state ?? '',
-    pincode: initialAddress.pincode ?? '',
-    landmark: initialAddress.landmark ?? '',
-    isDefault: initialAddress.isDefault ?? false,
+  const [form, setForm] = useState<any>({
+    label: (initialAddress as any)?.label || 'Home',
+    line1: (initialAddress as any)?.line1 ?? '',
+    line2: (initialAddress as any)?.line2 ?? '',
+    city: (initialAddress as any)?.city ?? '',
+    state: (initialAddress as any)?.state ?? '',
+    pincode: (initialAddress as any)?.pincode ?? '',
+    landmark: (initialAddress as any)?.landmark ?? '',
   })
 
   const [errors, setErrors] = useState<FormErrors>({})
@@ -96,7 +87,7 @@ const AddressForm = ({
 
     lookupPincode(pincode).then((result) => {
       if (result.found) {
-        setForm((current) => ({
+        setForm((current: any) => ({
           ...current,
           city: result.city,
           state: result.state,
@@ -129,7 +120,7 @@ const AddressForm = ({
       return // block non-numeric pincode entry
     }
 
-    setForm((current) => ({ ...current, [key]: value }))
+    setForm((current: any) => ({ ...current, [key]: value }))
 
     if (key in validators) {
       const error = validators[key as FieldKey](value)
@@ -146,7 +137,7 @@ const AddressForm = ({
 
   /* ── validate all fields before submit ──────────────────── */
   const validateAll = (): boolean => {
-    const keys: FieldKey[] = ['fullName', 'phone', 'pincode', 'line1', 'city', 'state']
+    const keys: FieldKey[] = ['label', 'pincode', 'line1', 'city', 'state']
     const nextErrors: FormErrors = {}
     const nextTouched: Partial<Record<FieldKey, boolean>> = {}
     let valid = true
@@ -177,15 +168,12 @@ const AddressForm = ({
       return
     }
 
-    onSubmit({
-      ...form,
-      id: form.id || `addr-${Date.now()}`,
-    })
+    onSubmit(form)
   }
 
   /* ── is form currently valid (for button state) ─────────── */
   const isFormValid = (): boolean => {
-    const keys: FieldKey[] = ['fullName', 'phone', 'pincode', 'line1', 'city', 'state']
+    const keys: FieldKey[] = ['label', 'pincode', 'line1', 'city', 'state']
     return (
       keys.every((key) => !validators[key](form[key] as string)) &&
       pincodeStatus !== 'not_found' &&
@@ -219,46 +207,29 @@ const AddressForm = ({
   return (
     <form className={styles.form} onSubmit={handleSubmit} noValidate>
       <div className={styles.grid2}>
-        {/* Full name */}
+        {/* Label */}
         <div className={styles.fieldGroup}>
-          <label className={styles.label} htmlFor="addr-fullName">
-            Full name <span className={styles.required}>*</span>
+          <label className={styles.label} htmlFor="addr-label">
+            Label <span className={styles.required}>*</span>
           </label>
           <div className={styles.inputWrap}>
-            <input
-              id="addr-fullName"
-              className={inputClass('fullName')}
-              placeholder="e.g. Aarav Sharma"
-              autoComplete="name"
-              value={form.fullName}
-              onChange={handleChange('fullName')}
-              onBlur={handleBlur('fullName')}
-              data-testid="address-fullname"
-            />
+            <select
+              id="addr-label"
+              className={inputClass('label' as any)}
+              value={form.label}
+              onChange={(e: any) => {
+                setForm((prev: any) => ({ ...prev, label: e.target.value }))
+                setErrors(prev => ({ ...prev, label: '' }))
+              }}
+              onBlur={() => handleBlur('label' as any)(null as any)}
+              data-testid="address-label"
+            >
+              <option value="Home">Home</option>
+              <option value="Office">Office</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
-          {errorFor('fullName')}
-        </div>
-
-        {/* Phone */}
-        <div className={styles.fieldGroup}>
-          <label className={styles.label} htmlFor="addr-phone">
-            Phone <span className={styles.required}>*</span>
-          </label>
-          <div className={styles.inputWrap}>
-            <input
-              id="addr-phone"
-              className={inputClass('phone')}
-              placeholder="10-digit mobile"
-              autoComplete="tel"
-              inputMode="numeric"
-              maxLength={10}
-              value={form.phone}
-              onChange={handleChange('phone')}
-              onBlur={handleBlur('phone')}
-              data-testid="address-phone"
-            />
-          </div>
-          {errorFor('phone')}
+          {errorFor('label' as any)}
         </div>
       </div>
 
@@ -313,7 +284,6 @@ const AddressForm = ({
                 onClick={() => setCityLocked(false)}
                 tabIndex={-1}
               >
-                (override)
               </button>
             )}
           </label>
@@ -342,7 +312,6 @@ const AddressForm = ({
                 onClick={() => setStateLocked(false)}
                 tabIndex={-1}
               >
-                (override)
               </button>
             )}
           </label>
@@ -409,16 +378,6 @@ const AddressForm = ({
           />
         </div>
       </div>
-
-      {/* Default checkbox */}
-      <label className={styles.checkbox}>
-        <input
-          type="checkbox"
-          checked={Boolean(form.isDefault)}
-          onChange={(event) => setForm((current) => ({ ...current, isDefault: event.target.checked }))}
-        />
-        Set as default address
-      </label>
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: 10 }}>

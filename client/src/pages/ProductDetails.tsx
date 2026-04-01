@@ -1,8 +1,9 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { products } from '../data/products'
 import { useAuth } from '../context/AuthContext'
-import { useCart } from '../hooks/useCart'
+import { useAppDispatch, useAppSelector } from '../store/hooks'
+import { addItem, updateQuantity } from '../store/slices/cartSlice'
+import useProducts from '../hooks/useProducts'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import LoginModal from '../components/LoginModal/LoginModal'
 import {
@@ -62,9 +63,57 @@ const ProductDetails = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { isLoggedIn, login } = useAuth()
-  const { addToCart } = useCart()
-  const numericId = Number(id)
-  const product = products.find((item) => item.id === numericId)
+  const dispatch = useAppDispatch()
+  const cartItems = useAppSelector((state) => state.cart.items)
+  const { loadProductById, getProductById, getAllProducts } = useProducts()
+  
+  // Handle both numeric IDs and MongoDB ObjectId strings
+  const productId = id || ''
+  const numericId = Number(productId)
+  const [product, setProduct] = useState<any>(null)
+
+  // Get current cart quantity for this product
+  const cartQuantity = useMemo(() => {
+    const cartItem = cartItems.find(
+      (item: any) =>
+        item.productId === numericId ||
+        item.productId === productId ||
+        String(item.productId) === String(productId) ||
+        String(item.productId) === String(numericId)
+    )
+    return cartItem?.quantity ?? 0
+  }, [cartItems, numericId, productId])
+
+  // Fetch product by ID on mount
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        // Load all products to ensure we have data
+        await loadProductById(productId)
+        
+        // Try to find product - first by numeric ID, then by string ID
+        let fetchedProduct = getProductById(numericId)
+        
+        if (!fetchedProduct) {
+          fetchedProduct = getProductById(productId)
+        }
+        
+        setProduct(fetchedProduct)
+        setLoading(false)
+      } catch (error) {
+        setLoading(false)
+      }
+    }
+    
+    if (productId) {
+      fetchProduct()
+    }
+  }, [productId, numericId, loadProductById, getProductById])
+
+  // Scroll to top when product details page loads
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [id])
 
   const [selectedImage, setSelectedImage] = useState(0)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -80,11 +129,16 @@ const ProductDetails = () => {
   const [purchasedToast, setPurchasedToast] = useState('')
   const [isLoginOpen, setIsLoginOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState<PendingAction>(null)
-  const [viewerCount, setViewerCount] = useState(() => 6 + (numericId % 18))
+  const [viewerCount, setViewerCount] = useState(() => {
+    // Use numeric ID if valid, otherwise use string ID for viewer count generation
+    const idForCount = !isNaN(numericId) && numericId > 0 ? numericId : productId
+    return 6 + (typeof idForCount === 'string' ? idForCount.charCodeAt(0) : idForCount) % 18
+  })
   const [isWishlisted, setIsWishlisted] = useState(false)
 
   const debouncedPincode = useDebouncedValue(pincodeInput, 350)
-  const stockCount = getStockCount(numericId)
+  // Use actual stock from product API if available, otherwise fallback to calculated value
+  const stockCount = product?.stock !== undefined ? product.stock : getStockCount(!isNaN(numericId) && numericId > 0 ? numericId : productId)
   const images = product ? productImages(product.image) : []
 
   const deliveryInfo = useMemo(() => estimateDeliveryByPincode(debouncedPincode), [debouncedPincode])
@@ -110,17 +164,19 @@ const ProductDetails = () => {
       return { alsoBought: [], trending: [], recently: [] }
     }
 
-    const alsoBought = products
-      .filter((item) => item.category === product.category && item.id !== product.id)
+    const allProducts = getAllProducts()
+
+    const alsoBought = allProducts
+      .filter((item: any) => item.category === product.category && item.id !== product.id)
       .slice(0, 4)
 
-    const trending = [...products]
-      .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
-      .filter((item) => item.id !== product.id)
+    const trending = [...allProducts]
+      .sort((a: any, b: any) => (b.rating ?? 0) - (a.rating ?? 0))
+      .filter((item: any) => item.id !== product.id)
       .slice(0, 4)
 
     return { alsoBought, trending, recently: [] }
-  }, [product])
+  }, [product, getAllProducts])
 
   useEffect(() => {
     const timer = window.setTimeout(() => setLoading(false), 500)
@@ -194,8 +250,30 @@ const ProductDetails = () => {
       setToast('Please login to continue')
       return
     }
-    addToCart(product.id, quantity)
-    setToast('Added to cart')
+    // Use product.id if available, otherwise use _id
+    const productId = product.id || product._id
+    // Calculate total quantity if added
+    const totalQuantity = cartQuantity + quantity
+    
+    // Check stock availability
+    if (totalQuantity > stockCount) {
+      setToast(`❌ Cannot add! Only ${stockCount} in stock. You already have ${cartQuantity} in cart.`)
+      return
+    }
+    
+    // If item already in cart, update the total quantity
+    // Otherwise, add it as a new item
+    if (cartQuantity > 0) {
+      // Item exists - update total quantity
+      dispatch(updateQuantity({ productId, quantity: totalQuantity }))
+      setToast(`✓ Updated to ${totalQuantity} in cart`)
+    } else {
+      // Item doesn't exist - add it
+      dispatch(addItem({ productId, quantity }))
+      setToast(`✓ Added ${quantity} to cart`)
+    }
+    // Reset quantity for next add
+    setQuantity(1)
   }
 
   const handleBuyNow = () => {
@@ -208,7 +286,16 @@ const ProductDetails = () => {
       setToast('Please login to continue')
       return
     }
-    addToCart(product.id, quantity)
+    
+    // Check stock availability
+    if (quantity > stockCount) {
+      setToast(`❌ Cannot buy! Only ${stockCount} in stock available.`)
+      return
+    }
+    
+    // Use product.id if available, otherwise use _id
+    const productId = product.id || product._id
+    dispatch(addItem({ productId, quantity }))
     navigate('/checkout')
   }
 
@@ -217,13 +304,38 @@ const ProductDetails = () => {
       return
     }
 
+    // Use product.id if available, otherwise use _id
+    const productId = product.id || product._id
+
     if (action === 'add') {
-      addToCart(product.id, quantity)
-      setToast('Added to cart')
+      // Calculate total quantity if added
+      const totalQuantity = cartQuantity + quantity
+      
+      // Check stock availability
+      if (totalQuantity > stockCount) {
+        setToast(`❌ Cannot add! Only ${stockCount} in stock. You already have ${cartQuantity} in cart.`)
+        return
+      }
+      
+      // If item already in cart, update the total quantity
+      if (cartQuantity > 0) {
+        dispatch(updateQuantity({ productId, quantity: totalQuantity }))
+        setToast(`✓ Updated to ${totalQuantity} in cart`)
+      } else {
+        dispatch(addItem({ productId, quantity }))
+        setToast(`✓ Added ${quantity} to cart`)
+      }
+      setQuantity(1)
       return
     }
-
-    addToCart(product.id, quantity)
+    
+    // For buy now, check if quantity is available
+    if (quantity > stockCount) {
+      setToast(`❌ Cannot buy! Only ${stockCount} in stock available.`)
+      return
+    }
+    
+    dispatch(addItem({ productId, quantity }))
     navigate('/checkout')
   }
 
@@ -351,6 +463,35 @@ const ProductDetails = () => {
               <div className={styles.info}>
                 <h1 className={styles.title}>{product.name}</h1>
 
+                {/* Stock Status - Prominent Display */}
+                <div style={{
+                  padding: '12px 16px',
+                  backgroundColor: stockCount <= 3 ? '#ffebee' : '#e8f5e9',
+                  border: `2px solid ${stockCount <= 3 ? '#ef5350' : '#66bb6a'}`,
+                  borderRadius: '6px',
+                  marginBottom: '16px',
+                  textAlign: 'center'
+                }}>
+                  <p style={{
+                    margin: 0,
+                    fontSize: '16px',
+                    fontWeight: '700',
+                    color: stockCount <= 3 ? '#c62828' : '#2e7d32'
+                  }}>
+                    {stockCount <= 3 ? `⚠️ Only ${stockCount} left in stock!` : `✓ ${stockCount} in stock`}
+                  </p>
+                  {stockCount <= 3 && (
+                    <p style={{
+                      margin: '4px 0 0 0',
+                      fontSize: '12px',
+                      color: '#c62828',
+                      fontWeight: '500'
+                    }}>
+                      Hurry! Limited availability
+                    </p>
+                  )}
+                </div>
+
                 <div className={styles.priceRow}>
                   <span className={styles.price}>{formatCurrency(product.price)}</span>
                   {product.originalPrice && (
@@ -362,10 +503,15 @@ const ProductDetails = () => {
 
                 <div className={styles.row}>
                   <p className={styles.rating}>⭐ {product.rating ?? 4.6} ({product.reviews ?? 128} reviews)</p>
-                  <p className={stockCount <= 3 ? styles.stockLow : styles.stockOk}>
-                    {stockCount <= 3 ? `Only ${stockCount} left` : `${stockCount} in stock`}
-                  </p>
                 </div>
+
+                {cartQuantity > 0 && (
+                  <div className={styles.row} style={{ padding: '12px', backgroundColor: '#e8f5e9', borderRadius: '4px', border: '1px solid #4caf50', marginBottom: '16px' }}>
+                    <span style={{ color: '#2e7d32', fontWeight: 600, fontSize: '14px' }}>
+                      ✓ {cartQuantity} {cartQuantity === 1 ? 'item' : 'items'} in your cart
+                    </span>
+                  </div>
+                )}
 
                 <div className={styles.row}>
                   <span className={styles.viewerPill}>
@@ -567,7 +713,7 @@ const ProductDetails = () => {
             <section key={section.title} style={{ marginTop: 18 }}>
               <h2 style={{ marginBottom: 10 }}>{section.title}</h2>
               <div className={styles.recoGrid}>
-                {section.list.map((item) => (
+                {section.list.map((item: any) => (
                   <article className={styles.smallCard} key={item.id}>
                     <img src={item.image} alt={item.name} loading="lazy" />
                     <strong style={{ color: 'var(--text-dark)' }}>{item.name}</strong>

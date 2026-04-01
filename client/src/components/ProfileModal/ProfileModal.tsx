@@ -3,7 +3,8 @@ import { useAuth, Address } from '../../context/AuthContext'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { addItem, removeItem as removeFromCart } from '../../store/slices/cartSlice'
 import { removeItem as removeFromWishlist } from '../../store/slices/wishlistSlice'
-import { products } from '../../data/products'
+import { addNewAddress, updateAddressAsync, deleteAddressAsync, setDefaultAddressAsync } from '../../store/slices/addressSlice'
+import useProducts from '../../hooks/useProducts'
 import api from '../../services/api'
 import styles from './ProfileModal.module.css'
 
@@ -14,15 +15,16 @@ type ProfileModalProps = {
   onClose: () => void
 }
 
-const MOCK_ORDERS = [
-  { id: 'MLS20245821', date: 'Mar 18, 2026', status: 'Delivered', amount: '₹5,999', items: 'Brass Krishna Idol', statusColor: 'delivered' },
-  { id: 'MLS20245630', date: 'Mar 04, 2026', status: 'Shipped', amount: '₹1,499', items: 'Brass Buddha Door Knocker', statusColor: 'shipped' },
-  { id: 'MLS20245104', date: 'Feb 14, 2026', status: 'Processing', amount: '₹3,499', items: 'Brass Elephant Figurine', statusColor: 'processing' },
-]
-
 const AVATAR_INITIALS = (name: string) => {
   const parts = name.trim().split(' ')
   return parts.length >= 2 ? `${parts[0][0]}${parts[1][0]}`.toUpperCase() : parts[0].slice(0, 2).toUpperCase()
+}
+
+const getStatusColor = (status: string): string => {
+  if (status === 'delivered') return 'delivered'
+  if (status === 'shipped' || status === 'out_for_delivery') return 'shipped'
+  if (status === 'ordered' || status === 'packed') return 'processing'
+  return 'processing'
 }
 
 const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
@@ -48,7 +50,6 @@ const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
           })
         }
       } catch (error) {
-        console.error('Error fetching user profile:', error)
         // Continue with existing profile if fetch fails
       }
     }
@@ -265,7 +266,6 @@ const ProfileTab = ({ profile, wishlistCount }: { profile: NonNullable<ReturnTyp
         setErrors({})
       }
     } catch (error) {
-      console.error('Error saving profile:', error)
       alert('Failed to save profile. Please try again.')
     } finally {
       setIsSaving(false)
@@ -413,66 +413,492 @@ const ProfileTab = ({ profile, wishlistCount }: { profile: NonNullable<ReturnTyp
   )
 }
 
-const AddressesTab = ({ addresses }: { addresses: Address[] }) => (
-  <div className={styles.section}>
-    <h3 className={styles.sectionTitle}>Saved Addresses</h3>
-    <div className={styles.addressList}>
-      {addresses.map((addr) => (
-        <div key={addr.id} className={`${styles.addressCard} ${addr.isDefault ? styles.addressDefault : ''}`}>
-          <div className={styles.addressTop}>
-            <span className={styles.addressLabel}>{addr.label}</span>
-            {addr.isDefault && <span className={styles.defaultBadge}>Default</span>}
-          </div>
-          <p className={styles.addressText}>
-            {addr.line1}, {addr.line2}
-          </p>
-          <p className={styles.addressText}>
-            {addr.city}, {addr.state} – {addr.pincode}
-          </p>
-          <div className={styles.addressActions}>
-            <button type="button" className={styles.addrBtn}>Edit</button>
-            {!addr.isDefault && <button type="button" className={styles.addrBtn}>Set Default</button>}
-            {!addr.isDefault && <button type="button" className={`${styles.addrBtn} ${styles.addrBtnDanger}`}>Remove</button>}
-          </div>
-        </div>
-      ))}
-    </div>
-    <button type="button" className={styles.addAddressBtn}>+ Add New Address</button>
-  </div>
-)
+const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
+  const dispatch = useAppDispatch()
+  const { addresses: reduxAddresses, loading } = useAppSelector((state: any) => state.address)
+  const [isAddingAddress, setIsAddingAddress] = useState(false)
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null)
+  const [formData, setFormData] = useState({
+    label: 'Home',
+    line1: '',
+    line2: '',
+    city: '',
+    state: '',
+    pincode: '',
+    landmark: '',
+  })
+  const [error, setError] = useState<string | null>(null)
 
-const OrdersTab = () => (
-  <div className={styles.section}>
-    <h3 className={styles.sectionTitle}>Recent Orders</h3>
-    <div className={styles.orderList}>
-      {MOCK_ORDERS.map((order) => (
-        <div key={order.id} className={styles.orderCard}>
-          <div className={styles.orderTop}>
-            <span className={styles.orderId}>{order.id}</span>
-            <span className={`${styles.orderStatus} ${styles[`status_${order.statusColor}`]}`}>{order.status}</span>
+  // Addresses are synced to Redux automatically via useSyncAddresses hook in App.tsx
+  // when user logs in, so no need to fetch here
+
+  const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleAddAddress = async () => {
+    setError(null)
+    
+    if (!formData.line1 || !formData.city || !formData.state || !formData.pincode) {
+      setError('Please fill all required fields')
+      return
+    }
+
+    try {
+      if (editingAddressId) {
+        // Update existing address
+        await dispatch(updateAddressAsync({ addressId: editingAddressId, data: formData }) as any)
+        setEditingAddressId(null)
+      } else {
+        // Add new address
+        await dispatch(addNewAddress(formData) as any)
+      }
+      
+      // Reset form
+      setFormData({ label: 'Home', line1: '', line2: '', city: '', state: '', pincode: '', landmark: '' })
+      setIsAddingAddress(false)
+    } catch (err: any) {
+      setError(err.message || 'Failed to save address')
+    }
+  }
+
+  const handleDeleteAddress = async (addressId: string) => {
+    if (confirm('Are you sure you want to delete this address?')) {
+      try {
+        await dispatch(deleteAddressAsync(addressId) as any)
+      } catch (err: any) {
+        setError(err.message || 'Failed to delete address')
+      }
+    }
+  }
+
+  const handleSetDefault = async (addressId: string) => {
+    try {
+      await dispatch(setDefaultAddressAsync(addressId) as any)
+    } catch (err: any) {
+      setError(err.message || 'Failed to set default address')
+    }
+  }
+
+  const displayAddresses = reduxAddresses.length > 0 ? reduxAddresses : addresses || []
+
+  return (
+    <div className={styles.section}>
+      <h3 className={styles.sectionTitle}>Saved Addresses</h3>
+      
+      {error && (
+        <div style={{ padding: '8px 12px', background: 'rgba(211, 47, 47, 0.15)', color: '#d32f2f', borderRadius: '6px', marginBottom: '12px', fontSize: '12px' }}>
+          {error}
+        </div>
+      )}
+
+      {/* Address List */}
+      <div className={styles.addressList}>
+        {displayAddresses.map((addr: any) => (
+          <div key={addr._id || addr.id} className={`${styles.addressCard} ${addr.isDefault ? styles.addressDefault : ''}`}>
+            <div className={styles.addressTop}>
+              <span className={styles.addressLabel}>{addr.label}</span>
+              {addr.isDefault && <span className={styles.defaultBadge}>Default</span>}
+            </div>
+            <p className={styles.addressText}>
+              {addr.line1}, {addr.line2}
+            </p>
+            <p className={styles.addressText}>
+              {addr.city}, {addr.state} – {addr.pincode}
+            </p>
+            {addr.landmark && <p className={styles.addressText} style={{ fontSize: '12px', color: 'var(--text-light)' }}>Landmark: {addr.landmark}</p>}
+            
+            <div className={styles.addressActions}>
+              <button 
+                type="button" 
+                className={styles.addrBtn}
+                onClick={() => {
+                  setEditingAddressId(addr._id || addr.id)
+                  setFormData({
+                    label: addr.label,
+                    line1: addr.line1,
+                    line2: addr.line2,
+                    city: addr.city,
+                    state: addr.state,
+                    pincode: addr.pincode,
+                    landmark: addr.landmark || '',
+                  })
+                  setIsAddingAddress(true)
+                }}
+              >
+                Edit
+              </button>
+              {!addr.isDefault && (
+                <button 
+                  type="button" 
+                  className={styles.addrBtn}
+                  onClick={() => handleSetDefault(addr._id || addr.id)}
+                  disabled={loading}
+                >
+                  Set Default
+                </button>
+              )}
+              {!addr.isDefault && (
+                <button 
+                  type="button" 
+                  className={`${styles.addrBtn} ${styles.addrBtnDanger}`}
+                  onClick={() => handleDeleteAddress(addr._id || addr.id)}
+                  disabled={loading}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
           </div>
-          <p className={styles.orderItem}>{order.items}</p>
-          <div className={styles.orderMeta}>
-            <span className={styles.orderDate}>📅 {order.date}</span>
-            <span className={styles.orderAmount}>{order.amount}</span>
+        ))}
+      </div>
+
+      {/* Add/Edit Address Form */}
+      {isAddingAddress && (
+        <div style={{ marginTop: '16px', padding: '12px', border: '1px solid rgba(125, 46, 79, 0.2)', borderRadius: '8px', background: 'rgba(125, 46, 79, 0.05)' }}>
+          <h4 style={{ marginBottom: '10px', color: 'var(--text-dark)' }}>
+            {editingAddressId ? 'Edit Address' : 'Add New Address'}
+          </h4>
+          
+          <div style={{ display: 'grid', gap: '10px', marginBottom: '12px' }}>
+            {/* Label */}
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
+                Label (Home, Office, etc)
+              </label>
+              <select
+                name="label"
+                value={formData.label}
+                onChange={handleAddressChange}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid rgba(125, 46, 79, 0.3)',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <option value="Home">Home</option>
+                <option value="Office">Office</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            {/* Line 1 */}
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
+                Address Line 1 *
+              </label>
+              <input
+                type="text"
+                name="line1"
+                value={formData.line1}
+                onChange={handleAddressChange}
+                placeholder="Street address"
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid rgba(125, 46, 79, 0.3)',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontFamily: 'inherit',
+                }}
+              />
+            </div>
+
+            {/* Line 2 */}
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
+                Address Line 2
+              </label>
+              <input
+                type="text"
+                name="line2"
+                value={formData.line2}
+                onChange={handleAddressChange}
+                placeholder="Apartment, suite, etc (optional)"
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid rgba(125, 46, 79, 0.3)',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontFamily: 'inherit',
+                }}
+              />
+            </div>
+
+            {/* City & State */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
+                  City *
+                </label>
+                <input
+                  type="text"
+                  name="city"
+                  value={formData.city}
+                  onChange={handleAddressChange}
+                  placeholder="City"
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid rgba(125, 46, 79, 0.3)',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
+                  State *
+                </label>
+                <input
+                  type="text"
+                  name="state"
+                  value={formData.state}
+                  onChange={handleAddressChange}
+                  placeholder="State"
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid rgba(125, 46, 79, 0.3)',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Pincode */}
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
+                Pincode *
+              </label>
+              <input
+                type="text"
+                name="pincode"
+                value={formData.pincode}
+                onChange={handleAddressChange}
+                placeholder="6-digit pincode"
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid rgba(125, 46, 79, 0.3)',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontFamily: 'inherit',
+                }}
+              />
+            </div>
+
+            {/* Landmark */}
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
+                Landmark
+              </label>
+              <input
+                type="text"
+                name="landmark"
+                value={formData.landmark}
+                onChange={handleAddressChange}
+                placeholder="Nearby landmark (optional)"
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid rgba(125, 46, 79, 0.3)',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontFamily: 'inherit',
+                }}
+              />
+            </div>
           </div>
-          <div className={styles.orderActions}>
-            <button type="button" className={styles.addrBtn}>Track</button>
-            <button type="button" className={styles.addrBtn}>Invoice</button>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={handleAddAddress}
+              disabled={loading}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                background: 'var(--primary)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                fontWeight: 600,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.6 : 1,
+                fontSize: '13px',
+              }}
+            >
+              {loading ? 'Saving...' : (editingAddressId ? 'Update Address' : 'Add Address')}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsAddingAddress(false)
+                setEditingAddressId(null)
+                setFormData({ label: 'Home', line1: '', line2: '', city: '', state: '', pincode: '', landmark: '' })
+                setError(null)
+              }}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                background: 'transparent',
+                color: 'var(--primary)',
+                border: '1px solid var(--primary)',
+                borderRadius: '6px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontSize: '13px',
+              }}
+            >
+              Cancel
+            </button>
           </div>
         </div>
-      ))}
+      )}
+
+      {/* Add New Address Button */}
+      {!isAddingAddress && (
+        <button 
+          type="button" 
+          className={styles.addAddressBtn}
+          onClick={() => {
+            setIsAddingAddress(true)
+            setEditingAddressId(null)
+            setFormData({ label: 'Home', line1: '', line2: '', city: '', state: '', pincode: '', landmark: '' })
+            setError(null)
+          }}
+          style={{ marginTop: '12px' }}
+        >
+          + Add New Address
+        </button>
+      )}
     </div>
-  </div>
-)
+  )
+}
+
+const OrdersTab = () => {
+  const [orders, setOrders] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const response = await api.request('/orders')
+        setOrders(response.orders || [])
+      } catch (err: any) {
+        setError(err.message || 'Failed to load orders')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchOrders()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className={styles.section}>
+        <h3 className={styles.sectionTitle}>Recent Orders</h3>
+        <p style={{ textAlign: 'center', padding: '1rem', color: '#999' }}>Loading orders...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className={styles.section}>
+        <h3 className={styles.sectionTitle}>Recent Orders</h3>
+        <p style={{ textAlign: 'center', padding: '1rem', color: '#d32f2f' }}>⚠️ {error}</p>
+      </div>
+    )
+  }
+
+  if (orders.length === 0) {
+    return (
+      <div className={styles.section}>
+        <h3 className={styles.sectionTitle}>Recent Orders</h3>
+        <p style={{ textAlign: 'center', padding: '1rem', color: '#999' }}>No orders yet</p>
+      </div>
+    )
+  }
+
+  const formatCurrency = (value: number) => `₹${value.toLocaleString('en-IN')}`
+  const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+
+  return (
+    <div className={styles.section}>
+      <h3 className={styles.sectionTitle}>Recent Orders</h3>
+      <div className={styles.orderList}>
+        {orders.map((order: any) => (
+          <div key={order._id} className={styles.orderCard}>
+            <div className={styles.orderTop}>
+              <span className={styles.orderId}>{order._id.slice(-8).toUpperCase()}</span>
+              <span className={`${styles.orderStatus} ${styles[`status_${getStatusColor(order.status)}`]}`}>
+                {order.status.charAt(0).toUpperCase() + order.status.slice(1).replace('_', ' ')}
+              </span>
+            </div>
+            
+            {/* Display all product names in the order */}
+            <div className={styles.orderItems}>
+              {order.items && order.items.length > 0 ? (
+                order.items.map((item: any, idx: number) => (
+                  <p key={idx} className={styles.orderItem}>
+                    {item.product?.name || 'Product'} {item.quantity > 1 ? `(x${item.quantity})` : ''}
+                  </p>
+                ))
+              ) : (
+                <p className={styles.orderItem}>No items</p>
+              )}
+            </div>
+            
+            <div className={styles.orderMeta}>
+              <span className={styles.orderDate}>📅 {formatDate(order.createdAt)}</span>
+              <span className={styles.orderAmount}>{formatCurrency(order.total)}</span>
+            </div>
+            <div className={styles.orderActions}>
+              <button type="button" className={styles.addrBtn} onClick={() => window.location.href = `/order-tracking/${order._id}`}>Track</button>
+              <button type="button" className={styles.addrBtn}>Invoice</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 const WishlistTab = ({ onClose }: { onClose: () => void }) => {
   const dispatch = useAppDispatch()
   const wishlistItems = useAppSelector((state) => state.wishlist.items)
+  const { allProducts, loadProducts } = useProducts()
+
+  // Load products on mount
+  useEffect(() => {
+    if (allProducts.length === 0) {
+      loadProducts(1, 1000)
+    }
+  }, [allProducts.length, loadProducts])
   
   const wishlistProducts = wishlistItems
-    .map((item: any) => products.find((p: any) => p.id === item.productId))
-    .filter((p: any): p is typeof products[0] => p !== undefined)
+    .map((item: any) => {
+      const itemIdStr = String(item.productId)
+      return allProducts.find((p: any) => {
+        const pid = p.id !== undefined ? String(p.id) : null
+        const p_id = p._id !== undefined ? String(p._id) : null
+        return pid === itemIdStr || p_id === itemIdStr
+      })
+    })
+    .filter((p: any): p is any => p !== undefined)
 
   return (
     <div className={styles.section}>
@@ -483,8 +909,18 @@ const WishlistTab = ({ onClose }: { onClose: () => void }) => {
         </div>
       ) : (
         <div className={styles.wishList}>
-          {wishlistProducts.map((product: any) => (
-            <div key={product.id} className={styles.wishCard}>
+          {wishlistProducts.map((product: any) => {
+            // Find the original wishlist item to get the correct productId
+            const originalWishlistItem = wishlistItems.find((item: any) => {
+              const itemIdStr = String(item.productId)
+              const pid = product.id !== undefined ? String(product.id) : null
+              const p_id = product._id !== undefined ? String(product._id) : null
+              return pid === itemIdStr || p_id === itemIdStr
+            })
+            const productId = originalWishlistItem?.productId || product.id || product._id
+            
+            return (
+            <div key={productId} className={styles.wishCard}>
               <div className={styles.wishInfo}>
                 <p className={styles.wishName}>{product.name}</p>
                 <p className={styles.wishCat}>{product.category}</p>
@@ -496,9 +932,9 @@ const WishlistTab = ({ onClose }: { onClose: () => void }) => {
                   className={styles.wishCartBtn}
                   onClick={() => {
                     // Add to active cart (not as savedForLater)
-                    dispatch(addItem({ productId: product.id, quantity: 1 }));
+                    dispatch(addItem({ productId, quantity: 1 }));
                     // Remove from wishlist
-                    dispatch(removeFromWishlist(product.id));
+                    dispatch(removeFromWishlist(productId));
                     // Show success and close modal
                     setTimeout(() => onClose(), 500);
                   }}
@@ -510,15 +946,16 @@ const WishlistTab = ({ onClose }: { onClose: () => void }) => {
                   className={styles.wishRemoveBtn}
                   onClick={() => {
                     // Remove from both Redux wishlist and cart savedForLater
-                    dispatch(removeFromWishlist(product.id));
-                    dispatch(removeFromCart(product.id));
+                    dispatch(removeFromWishlist(productId));
+                    dispatch(removeFromCart(productId));
                   }}
                 >
                   ✕
                 </button>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

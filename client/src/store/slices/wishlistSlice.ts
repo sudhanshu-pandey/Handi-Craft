@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 export interface WishlistItem {
-  productId: number;
+  productId: number | string;
   addedAt: string;
 }
 
@@ -31,7 +31,7 @@ const wishlistSlice = createSlice({
     },
 
     // Add item to wishlist (save for later)
-    addItem: (state, action: PayloadAction<number>) => {
+    addItem: (state, action: PayloadAction<number | string>) => {
       const productId = action.payload;
       const existingItem = state.items.find((item) => item.productId === productId);
 
@@ -45,14 +45,14 @@ const wishlistSlice = createSlice({
     },
 
     // Remove item from wishlist
-    removeItem: (state, action: PayloadAction<number>) => {
+    removeItem: (state, action: PayloadAction<number | string>) => {
       const productId = action.payload;
       state.items = state.items.filter((item) => item.productId !== productId);
       state.itemCount = state.items.length;
     },
 
     // Remove multiple items
-    removeItems: (state, action: PayloadAction<number[]>) => {
+    removeItems: (state, action: PayloadAction<(number | string)[]>) => {
       const productIds = action.payload;
       state.items = state.items.filter((item) => !productIds.includes(item.productId));
       state.itemCount = state.items.length;

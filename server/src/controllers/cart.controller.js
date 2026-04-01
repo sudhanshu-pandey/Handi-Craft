@@ -233,7 +233,6 @@ const syncCart = async (req, res) => {
       // Find product by numeric ID
       const product = await Product.findOne({ id: productId });
       if (!product) {
-        console.warn(`Product with id ${productId} not found`);
         continue; // Skip if product doesn't exist
       }
 

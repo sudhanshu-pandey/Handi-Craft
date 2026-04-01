@@ -820,6 +820,23 @@
   }
 }
 
+/* ── Mobile cart item layout ──────────────────────── */
+@media (max-width: 640px) {
+  /* Stack cart items vertically on mobile */
+  .card > article[class*="softCard"] > div {
+    grid-template-columns: min(90px, 20%) 1fr !important;
+  }
+  
+  .card > article[class*="softCard"] > div > div:last-child {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    flex-direction: row;
+  }
+}
+
 /* ── Mobile cart / checkout overrides ──────────────── */
 @media (max-width: 640px) {
   .stickyBuy {

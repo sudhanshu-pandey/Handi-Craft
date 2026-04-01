@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 export interface CartItem {
-  productId: number;
+  productId: number | string;
   quantity: number;
   savedForLater: boolean;
 }
@@ -36,9 +36,15 @@ const cartSlice = createSlice({
     // Add item to cart
     // If item is saved-for-later, move it to active cart
     // If item is already active, increase quantity
-    addItem: (state, action: PayloadAction<{ productId: number; quantity: number }>) => {
+    addItem: (state, action: PayloadAction<{ productId: number | string; quantity: number }>) => {
       const { productId, quantity } = action.payload;
-      const existingItem = state.items.find((item) => item.productId === productId);
+      
+      // Find existing item with flexible ID matching (handle numeric and string IDs)
+      const existingItem = state.items.find((item) => {
+        const existingIdStr = String(item.productId);
+        const newIdStr = String(productId);
+        return existingIdStr === newIdStr || item.productId === productId;
+      });
 
       if (existingItem) {
         // If item exists and is saved-for-later, move to active cart
@@ -63,14 +69,24 @@ const cartSlice = createSlice({
     },
 
     // Update item quantity
-    updateQuantity: (state, action: PayloadAction<{ productId: number; quantity: number }>) => {
+    updateQuantity: (state, action: PayloadAction<{ productId: number | string; quantity: number }>) => {
       const { productId, quantity } = action.payload;
-      const item = state.items.find((item) => item.productId === productId);
+      
+      // Find item with flexible ID matching (handle numeric and string IDs)
+      const item = state.items.find((item) => {
+        const existingIdStr = String(item.productId);
+        const newIdStr = String(productId);
+        return existingIdStr === newIdStr || item.productId === productId;
+      });
 
       if (item) {
         if (quantity <= 0) {
           // Remove item if quantity is 0 or less
-          state.items = state.items.filter((item) => item.productId !== productId);
+          state.items = state.items.filter((item) => {
+            const existingIdStr = String(item.productId);
+            const newIdStr = String(productId);
+            return !(existingIdStr === newIdStr || item.productId === productId);
+          });
         } else {
           item.quantity = quantity;
         }
@@ -81,16 +97,24 @@ const cartSlice = createSlice({
     },
 
     // Remove item from cart
-    removeItem: (state, action: PayloadAction<number>) => {
+    removeItem: (state, action: PayloadAction<number | string>) => {
       const productId = action.payload;
-      state.items = state.items.filter((item) => item.productId !== productId);
+      state.items = state.items.filter((item) => {
+        const existingIdStr = String(item.productId);
+        const newIdStr = String(productId);
+        return !(existingIdStr === newIdStr || item.productId === productId);
+      });
       state.itemCount = state.items.filter((item) => !item.savedForLater).length;
     },
 
     // Toggle save for later
-    toggleSaveForLater: (state, action: PayloadAction<number>) => {
+    toggleSaveForLater: (state, action: PayloadAction<number | string>) => {
       const productId = action.payload;
-      const item = state.items.find((item) => item.productId === productId);
+      const item = state.items.find((item) => {
+        const existingIdStr = String(item.productId);
+        const newIdStr = String(productId);
+        return existingIdStr === newIdStr || item.productId === productId;
+      });
 
       if (item) {
         item.savedForLater = !item.savedForLater;
@@ -101,7 +125,7 @@ const cartSlice = createSlice({
     },
 
     // Move item from saved-for-later to active cart
-    moveToActiveCart: (state, action: PayloadAction<number>) => {
+    moveToActiveCart: (state, action: PayloadAction<number | string>) => {
       const productId = action.payload;
       const item = state.items.find((item) => item.productId === productId);
 
