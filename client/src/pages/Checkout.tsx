@@ -47,9 +47,6 @@ const Checkout = () => {
     }
   }, [allProducts.length, loadProducts])
 
-  // Addresses are synced to Redux automatically via useSyncAddresses hook in App.tsx
-  // No need to fetch here
-
   const activeItems = useMemo(
     () => {
       return reduxCart

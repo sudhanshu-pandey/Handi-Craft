@@ -4,6 +4,8 @@ import { getCountries, getCountryCallingCode, isValidPhoneNumber, parsePhoneNumb
 import countryLabels from 'react-phone-number-input/locale/en.json'
 import { useAuth } from '../../context/AuthContext'
 import styles from './LoginModal.module.css'
+import { fetchAddresses } from '../../store/slices/addressSlice'
+import { useAppDispatch } from '../../store/hooks'
 
 type LoginModalProps = {
   isOpen: boolean
@@ -55,7 +57,7 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
   const [menuPosition, setMenuPosition] = useState<MenuPosition>({ top: 0, left: 0, width: DROPDOWN_MIN_WIDTH })
   const [isSending, setIsSending] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
-
+  const dispatch = useAppDispatch();
   const otpRefs = useRef<Array<HTMLInputElement | null>>([])
   const countryWrapRef = useRef<HTMLDivElement | null>(null)
   const countryMenuRef = useRef<HTMLDivElement | null>(null)
@@ -393,6 +395,7 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }: LoginModalProps) => {
       
       setSuccessProvider('mobile')
       setStep('success')
+      dispatch(fetchAddresses());
       onLoginSuccess?.(parsedPhoneNumber?.number ?? `${selectedCountry.code}${mobile}`, 'mobile')
     } catch (err: any) {
       setOtpError(err.message || 'Failed to verify OTP. Please try again.')

@@ -428,10 +428,7 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
     landmark: '',
   })
   const [error, setError] = useState<string | null>(null)
-
-  // Addresses are synced to Redux automatically via useSyncAddresses hook in App.tsx
-  // when user logs in, so no need to fetch here
-
+  
   const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
@@ -447,11 +444,9 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
 
     try {
       if (editingAddressId) {
-        // Update existing address
         await dispatch(updateAddressAsync({ addressId: editingAddressId, data: formData }) as any)
         setEditingAddressId(null)
       } else {
-        // Add new address
         await dispatch(addNewAddress(formData) as any)
       }
       

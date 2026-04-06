@@ -89,16 +89,7 @@ export const setDefaultAddressAsync = createAsyncThunk(
 const addressSlice = createSlice({
   name: 'address',
   initialState,
-  reducers: {
-    clearAddressError: (state) => {
-      state.error = null;
-    },
-    setAddresses: (state, action) => {
-      state.addresses = action.payload;
-      const defaultAddr = state.addresses.find(addr => addr.isDefault);
-      state.defaultAddressId = defaultAddr?._id || null;
-    },
-  },
+  reducers: {},
   extraReducers: (builder) => {
     // Fetch addresses
     builder
@@ -189,5 +180,4 @@ const addressSlice = createSlice({
   },
 });
 
-export const { clearAddressError, setAddresses } = addressSlice.actions;
 export default addressSlice.reducer;

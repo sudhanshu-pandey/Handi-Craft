@@ -5,7 +5,6 @@ import { loadCart } from './store/slices/cartSlice'
 import { loadWishlist, addItem as addToWishlist } from './store/slices/wishlistSlice'
 import { loadCartFromLocalStorage, loadWishlistFromLocalStorage } from './store/middleware/cartPersistence'
 import { ToastProvider } from './context/ToastContext'
-import useSyncAddresses from './hooks/useSyncAddresses'
 import api from './services/api'
 import TopHeader from './components/TopHeader/TopHeader.tsx'
 import Navbar from './components/Navbar/Navbar.tsx'
@@ -26,9 +25,6 @@ function App() {
   const dispatch = useAppDispatch()
   const cartItems = useAppSelector((state) => state.cart.items)
   const wishlistItems = useAppSelector((state) => state.wishlist.items)
-
-  // Sync addresses from backend to Redux on login
-  useSyncAddresses()
 
   // Load cart and wishlist from localStorage on app start
   useEffect(() => {
