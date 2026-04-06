@@ -7,6 +7,7 @@ import { addNewAddress, updateAddressAsync, deleteAddressAsync, setDefaultAddres
 import useProducts from '../../hooks/useProducts'
 import api from '../../services/api'
 import styles from './ProfileModal.module.css'
+import { fetchOrders } from '../../store/slices/orderSlice'
 
 type Tab = 'profile' | 'addresses' | 'orders' | 'wishlist'
 
@@ -28,8 +29,10 @@ const getStatusColor = (status: string): string => {
 }
 
 const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
+  const dispatch = useAppDispatch()
   const { userProfile, logout, updateProfile } = useAuth()
   const wishlistItems = useAppSelector((state) => state.wishlist.items)
+  const orders = useAppSelector((state) => state.orders.orders)
   const [activeTab, setActiveTab] = useState<Tab>('profile')
   const modalRef = useRef<HTMLDivElement>(null)
 
@@ -55,7 +58,8 @@ const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
     }
 
     fetchUserProfile()
-  }, [isOpen, updateProfile, userProfile])
+    dispatch(fetchOrders() as any)
+  }, [isOpen, dispatch])
 
   useEffect(() => {
     if (!isOpen) return
@@ -121,7 +125,7 @@ const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
 
         {/* --- Content --- */}
         <div className={styles.content}>
-          {activeTab === 'profile' && <ProfileTab profile={userProfile} wishlistCount={wishlistItems.length} />}
+          {activeTab === 'profile' && <ProfileTab profile={userProfile} wishlistCount={wishlistItems.length} orders={orders} />}
           {activeTab === 'addresses' && <AddressesTab addresses={userProfile.addresses} />}
           {activeTab === 'orders' && <OrdersTab />}
           {activeTab === 'wishlist' && <WishlistTab onClose={onClose} />}
@@ -154,7 +158,7 @@ const TAB_LABELS: Record<Tab, string> = {
   wishlist: 'Wishlist',
 }
 
-const ProfileTab = ({ profile, wishlistCount }: { profile: NonNullable<ReturnType<typeof useAuth>['userProfile']>, wishlistCount: number }) => {
+const ProfileTab = ({ profile, wishlistCount, orders }: { profile: NonNullable<ReturnType<typeof useAuth>['userProfile']>, wishlistCount: number, orders: any[] }) => {
   const { updateProfile } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -389,7 +393,7 @@ const ProfileTab = ({ profile, wishlistCount }: { profile: NonNullable<ReturnTyp
 
       <div className={styles.statsRow}>
         <div className={styles.statCard}>
-          <span className={styles.statNum}>3</span>
+          <span className={styles.statNum}>{orders.length}</span>
           <span className={styles.statLabel}>Orders</span>
         </div>
         <div className={styles.statCard}>
@@ -397,7 +401,7 @@ const ProfileTab = ({ profile, wishlistCount }: { profile: NonNullable<ReturnTyp
           <span className={styles.statLabel}>Wishlist</span>
         </div>
         <div className={styles.statCard}>
-          <span className={styles.statNum}>₹10,947</span>
+          <span className={styles.statNum}>₹{orders.reduce((total, order) => total + (order.total || 0), 0).toLocaleString('en-IN')}</span>
           <span className={styles.statLabel}>Total Spent</span>
         </div>
       </div>
@@ -782,24 +786,9 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
 }
 
 const OrdersTab = () => {
-  const [orders, setOrders] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const response = await api.request('/orders')
-        setOrders(response.orders || [])
-      } catch (err: any) {
-        setError(err.message || 'Failed to load orders')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchOrders()
-  }, [])
+  const orders = useAppSelector((state) => state.orders.orders)
+  const loading = useAppSelector((state) => state.orders.loading)
+  const error = useAppSelector((state) => state.orders.error)
 
   if (loading) {
     return (
@@ -847,11 +836,13 @@ const OrdersTab = () => {
             {/* Display all product names in the order */}
             <div className={styles.orderItems}>
               {order.items && order.items.length > 0 ? (
-                order.items.map((item: any, idx: number) => (
-                  <p key={idx} className={styles.orderItem}>
-                    {item.product?.name || 'Product'} {item.quantity > 1 ? `(x${item.quantity})` : ''}
-                  </p>
-                ))
+                order.items.map((item: any, idx: number) => {
+                  return (
+                    <p key={idx} className={styles.orderItem}>
+                      {item.product?.name || item.productName || 'Product'} {item.quantity > 1 ? `(x${item.quantity})` : ''}
+                    </p>
+                  )
+                })
               ) : (
                 <p className={styles.orderItem}>No items</p>
               )}

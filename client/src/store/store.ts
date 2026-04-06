@@ -3,6 +3,7 @@ import cartReducer from './slices/cartSlice';
 import wishlistReducer from './slices/wishlistSlice';
 import productReducer from './slices/productSlice';
 import addressReducer from './slices/addressSlice';
+import orderReducer from './slices/orderSlice';
 import { cartPersistenceMiddleware } from './middleware/cartPersistence';
 
 /**
@@ -15,6 +16,7 @@ const store = configureStore({
     wishlist: wishlistReducer,
     products: productReducer,
     address: addressReducer,
+    orders: orderReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(cartPersistenceMiddleware as any),

@@ -205,15 +205,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [])
 
   const login = useCallback((mobile: string) => {
-    const profile = buildDefaultProfile(mobile)
-    setUserProfile(profile)
-    setIsLoggedIn(true)
+    setIsLoading(true)
+    const fetchAndSetProfile = async () => {
+      try {
+        // Try to fetch real profile from API
+        const profileResponse = await api.getUserProfile()
+        const dbProfile = profileResponse.user
+        
+        const profile: UserProfile = {
+          name: dbProfile.name || 'User',
+          email: dbProfile.email || '',
+          mobile: dbProfile.phone || mobile,
+          gender: dbProfile.gender || '',
+          dob: dbProfile.dob || '',
+          addresses: dbProfile.addresses || [],
+        }
+        
+        setUserProfile(profile)
+        setIsLoggedIn(true)
+        
+        // Persist to localStorage
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+          isLoggedIn: true,
+          profile,
+        }))
+      } catch (err) {
+        // If profile fetch fails, use default profile as fallback
+        console.error('[AuthContext.login] Failed to fetch profile, using default:', err)
+        const profile = buildDefaultProfile(mobile)
+        setUserProfile(profile)
+        setIsLoggedIn(true)
+        
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+          isLoggedIn: true,
+          profile,
+        }))
+      } finally {
+        setIsLoading(false)
+      }
+    }
     
-    // Persist to localStorage
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
-      isLoggedIn: true,
-      profile,
-    }))
+    fetchAndSetProfile()
   }, [])
 
   const logout = useCallback(async () => {
