@@ -5,6 +5,7 @@ import { addItem, removeItem as removeFromCart } from '../../store/slices/cartSl
 import { removeItem as removeFromWishlist } from '../../store/slices/wishlistSlice'
 import { addNewAddress, updateAddressAsync, deleteAddressAsync, setDefaultAddressAsync } from '../../store/slices/addressSlice'
 import useProducts from '../../hooks/useProducts'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import api from '../../services/api'
 import styles from './ProfileModal.module.css'
 import { fetchOrders } from '../../store/slices/orderSlice'
@@ -432,6 +433,48 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
     landmark: '',
   })
   const [error, setError] = useState<string | null>(null)
+  const [pincodeStatus, setPincodeStatus] = useState<'idle' | 'loading' | 'found' | 'not_found'>('idle')
+  const [cityLocked, setCityLocked] = useState(false)
+  const [stateLocked, setStateLocked] = useState(false)
+  const debouncedPincode = useDebouncedValue(formData.pincode, 400)
+  
+  // Auto-fill city and state from pincode
+  useEffect(() => {
+    if (!debouncedPincode || !/^\d{6}$/.test(debouncedPincode)) {
+      setPincodeStatus('idle')
+      setCityLocked(false)
+      setStateLocked(false)
+      return
+    }
+
+    const lookupPincode = async () => {
+      try {
+        setPincodeStatus('loading')
+        const response = await api.lookupPincode(debouncedPincode)
+        
+        if (response.success && response.data) {
+          setFormData(prev => ({
+            ...prev,
+            city: response.data.city || '',
+            state: response.data.state || '',
+          }))
+          setCityLocked(true)
+          setStateLocked(true)
+          setPincodeStatus('found')
+        } else {
+          setPincodeStatus('not_found')
+          setCityLocked(false)
+          setStateLocked(false)
+        }
+      } catch (err) {
+        setPincodeStatus('not_found')
+        setCityLocked(false)
+        setStateLocked(false)
+      }
+    }
+
+    lookupPincode()
+  }, [debouncedPincode])
   
   const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -456,6 +499,9 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
       
       // Reset form
       setFormData({ label: 'Home', line1: '', line2: '', city: '', state: '', pincode: '', landmark: '' })
+      setCityLocked(false)
+      setStateLocked(false)
+      setPincodeStatus('idle')
       setIsAddingAddress(false)
     } catch (err: any) {
       setError(err.message || 'Failed to save address')
@@ -628,51 +674,7 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
                 }}
               />
             </div>
-
-            {/* City & State */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
-                  City *
-                </label>
-                <input
-                  type="text"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleAddressChange}
-                  placeholder="City"
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    border: '1px solid rgba(125, 46, 79, 0.3)',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontFamily: 'inherit',
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
-                  State *
-                </label>
-                <input
-                  type="text"
-                  name="state"
-                  value={formData.state}
-                  onChange={handleAddressChange}
-                  placeholder="State"
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    border: '1px solid rgba(125, 46, 79, 0.3)',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontFamily: 'inherit',
-                  }}
-                />
-              </div>
-            </div>
-
+            
             {/* Pincode */}
             <div>
               <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
@@ -693,6 +695,67 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
                   fontFamily: 'inherit',
                 }}
               />
+              {pincodeStatus === 'loading' && (
+                <span style={{ fontSize: '11px', color: 'var(--primary)', marginTop: '2px', display: 'block' }}>🔄 Looking up pincode...</span>
+              )}
+              {pincodeStatus === 'found' && (
+                <span style={{ fontSize: '11px', color: 'var(--primary)', marginTop: '2px', display: 'block' }}>✓ Pincode verified</span>
+              )}
+              {pincodeStatus === 'not_found' && formData.pincode && /^\d{6}$/.test(formData.pincode) && (
+                <span style={{ fontSize: '11px', color: '#ff9800', marginTop: '2px', display: 'block' }}>⚠ Pincode not found, enter city & state manually</span>
+              )}
+            </div>
+
+            {/* City & State */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
+                  City *
+                </label>
+                <input
+                  type="text"
+                  name="city"
+                  value={formData.city}
+                  onChange={handleAddressChange}
+                  placeholder="City"
+                  disabled={cityLocked}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid rgba(125, 46, 79, 0.3)',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    backgroundColor: cityLocked ? 'rgba(125, 46, 79, 0.08)' : 'transparent',
+                    cursor: cityLocked ? 'not-allowed' : 'text',
+                    opacity: cityLocked ? 0.7 : 1,
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
+                  State *
+                </label>
+                <input
+                  type="text"
+                  name="state"
+                  value={formData.state}
+                  onChange={handleAddressChange}
+                  placeholder="State"
+                  disabled={stateLocked}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid rgba(125, 46, 79, 0.3)',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    backgroundColor: stateLocked ? 'rgba(125, 46, 79, 0.08)' : 'transparent',
+                    cursor: stateLocked ? 'not-allowed' : 'text',
+                    opacity: stateLocked ? 0.7 : 1,
+                  }}
+                />
+              </div>
             </div>
 
             {/* Landmark */}
@@ -745,6 +808,9 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
                 setIsAddingAddress(false)
                 setEditingAddressId(null)
                 setFormData({ label: 'Home', line1: '', line2: '', city: '', state: '', pincode: '', landmark: '' })
+                setCityLocked(false)
+                setStateLocked(false)
+                setPincodeStatus('idle')
                 setError(null)
               }}
               style={{

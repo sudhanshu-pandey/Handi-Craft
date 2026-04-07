@@ -1,7 +1,7 @@
 import { ChangeEvent, FocusEvent, FormEvent, useEffect, useRef, useState } from 'react'
 import { Address } from '../../context/CommerceContext'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
-import { lookupPincode } from '../../utils/pincodeData'
+import api from '../../services/api'
 import styles from './AddressForm.module.css'
 
 /* ─── validation helpers ─────────────────────────────────── */
@@ -85,27 +85,37 @@ const AddressForm = ({
     lookupAbortRef.current = new AbortController()
     setPincodeStatus('loading')
 
-    lookupPincode(pincode).then((result) => {
-      if (result.found) {
-        setForm((current: any) => ({
-          ...current,
-          city: result.city,
-          state: result.state,
-        }))
-        setCityLocked(true)
-        setStateLocked(true)
-        setPincodeStatus('found')
-        setErrors((current) => ({ ...current, pincode: '', city: '', state: '' }))
-      } else {
+    api.lookupPincode(pincode)
+      .then((response: any) => {
+        if (response.success && response.data) {
+          setForm((current: any) => ({
+            ...current,
+            city: response.data.city,
+            state: response.data.state,
+          }))
+          setCityLocked(true)
+          setStateLocked(true)
+          setPincodeStatus('found')
+          setErrors((current) => ({ ...current, pincode: '', city: '', state: '' }))
+        } else {
+          setPincodeStatus('not_found')
+          setErrors((current) => ({
+            ...current,
+            pincode: 'Pincode not serviceable. Enter city/state manually.',
+          }))
+          setCityLocked(false)
+          setStateLocked(false)
+        }
+      })
+      .catch(() => {
         setPincodeStatus('not_found')
         setErrors((current) => ({
           ...current,
-          pincode: 'Pincode not serviceable. Enter city/state manually.',
+          pincode: 'Unable to verify pincode. Enter city/state manually.',
         }))
         setCityLocked(false)
         setStateLocked(false)
-      }
-    })
+      })
   }, [debouncedPincode])
 
   /* ── field change ───────────────────────────────────────── */

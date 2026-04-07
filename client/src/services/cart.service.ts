@@ -94,7 +94,6 @@ export class CartService {
         }
       }
     } catch (error: any) {
-      console.error('🔴 [CartService] Add to cart error:', error.message)
       return {
         success: false,
         error: error.message,
@@ -133,7 +132,6 @@ export class CartService {
         }
       }
     } catch (error: any) {
-      console.error('🔴 [CartService] Get cart error:', error.message)
       return {
         success: false,
         error: error.message,
@@ -197,7 +195,6 @@ export class CartService {
         }
       }
     } catch (error: any) {
-      console.error('🔴 [CartService] Update quantity error:', error.message)
       return {
         success: false,
         error: error.message,
@@ -252,7 +249,6 @@ export class CartService {
         }
       }
     } catch (error: any) {
-      console.error('🔴 [CartService] Remove from cart error:', error.message)
       return {
         success: false,
         error: error.message,
@@ -286,7 +282,6 @@ export class CartService {
         timestamp: new Date().toISOString(),
       }
     } catch (error: any) {
-      console.error('🔴 [CartService] Sync error:', error.message)
       // Don't clear cart on sync failure - user can try again
       return {
         success: false,
@@ -331,7 +326,6 @@ export class CartService {
         }
       }
     } catch (error: any) {
-      console.error('🔴 [CartService] Toggle save for later error:', error.message)
       return {
         success: false,
         error: error.message,
@@ -360,7 +354,6 @@ export class CartService {
         }
       }
     } catch (error: any) {
-      console.error('🔴 [CartService] Clear cart error:', error.message)
       return {
         success: false,
         error: error.message,

@@ -53,7 +53,7 @@ export const sendOTP = async (req, res) => {
     await user.save();
 
     await sendSMSOtp(phone, otp);
-    await sendWhatsAppOtp(phone, otp);
+    //await sendWhatsAppOtp(phone, otp);
 
     console.log("OTP:", otp); // For testing only - remove in production
 
@@ -108,6 +108,41 @@ export const verifyOTP = async (req, res) => {
       message: AUTH_MESSAGES.LOGIN_SUCCESS,
       accessToken,
       refreshToken,
+    });
+  } catch (error) {
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: error.message });
+  }
+};
+
+export const refreshAccessToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: "Refresh token is required" });
+    }
+
+    // Verify the refresh token
+    let decoded;
+    try {
+      decoded = jwt.verify(refreshToken, JWT_CONFIG.REFRESH_SECRET);
+    } catch (error) {
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: "Invalid or expired refresh token" });
+    }
+
+    // Find user and verify refresh token matches
+    const user = await User.findById(decoded.id);
+
+    if (!user || user.refreshToken !== refreshToken) {
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: "Refresh token not found or invalid" });
+    }
+
+    // Generate new access token
+    const newAccessToken = generateAccessToken(user);
+
+    res.json({
+      message: "Access token refreshed successfully",
+      accessToken: newAccessToken,
     });
   } catch (error) {
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: error.message });

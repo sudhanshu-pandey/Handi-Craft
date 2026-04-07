@@ -140,7 +140,7 @@ const updateProduct = async (req, res) => {
     const product = await Product.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
     if (!product) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: 'Product not found' });
     
@@ -208,7 +208,7 @@ const updateStock = async (req, res) => {
         await Product.findByIdAndUpdate(
           product._id,
           { stock: newStock },
-          { new: true }
+          { returnDocument: 'after' }
         );
 
         updates.push({

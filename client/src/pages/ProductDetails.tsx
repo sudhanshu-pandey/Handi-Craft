@@ -125,7 +125,7 @@ const ProductDetails = () => {
   const [reviews, setReviews] = useState<ReviewEntry[]>(defaultReviews)
   const [reviewForm, setReviewForm] = useState({ name: '', rating: 5, comment: '' })
   const [openFaq, setOpenFaq] = useState<number[]>([0])
-  const [pincodeInput, setPincodeInput] = useState('110001')
+  const [pincodeInput, setPincodeInput] = useState('')
   const [purchasedToast, setPurchasedToast] = useState('')
   const [isLoginOpen, setIsLoginOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState<PendingAction>(null)
@@ -141,7 +141,51 @@ const ProductDetails = () => {
   const stockCount = product?.stock !== undefined ? product.stock : getStockCount(!isNaN(numericId) && numericId > 0 ? numericId : productId)
   const images = product ? productImages(product.image) : []
 
-  const deliveryInfo = useMemo(() => estimateDeliveryByPincode(debouncedPincode), [debouncedPincode])
+  // State for delivery info
+  const [deliveryInfo, setDeliveryInfo] = useState({
+    isServiceable: false,
+    shippingCost: 0,
+    estimatedDate: '',
+    estimatedDays: 0,
+    message: 'Enter a valid pincode',
+    city: '',
+    state: '',
+  })
+  const [deliveryLoading, setDeliveryLoading] = useState(false)
+
+  // Fetch delivery estimate from API when pincode changes
+  useEffect(() => {
+    if (!debouncedPincode || debouncedPincode.length < 6) {
+      setDeliveryInfo({
+        isServiceable: false,
+        shippingCost: 0,
+        estimatedDate: '',
+        estimatedDays: 0,
+        message: 'Enter a valid pincode',
+        city: '',
+        state: '',
+      })
+      return
+    }
+
+    setDeliveryLoading(true)
+    estimateDeliveryByPincode(debouncedPincode).then(info => {
+      setDeliveryInfo(info)
+      setDeliveryLoading(false)
+    }).catch(error => {
+      console.error('Error fetching delivery estimate:', error)
+      setDeliveryInfo({
+        isServiceable: false,
+        shippingCost: 0,
+        estimatedDate: '',
+        estimatedDays: 0,
+        message: 'Unable to fetch delivery estimate',
+        city: '',
+        state: '',
+      })
+      setDeliveryLoading(false)
+    })
+  }, [debouncedPincode])
 
   const sortedReviews = useMemo(() => {
     const copied = [...reviews]
@@ -544,10 +588,21 @@ const ProductDetails = () => {
                     </button>
                   </div>
                   <button type="button" className={styles.ghostBtn} onClick={detectLocation}>Use my location</button>
-                  {deliveryInfo.isServiceable ? (
-                    <p style={{ color: 'var(--text-dark)' }}>
-                      Arrives by <strong>{deliveryInfo.estimatedDate}</strong> • {deliveryInfo.message}
+                  {deliveryLoading ? (
+                    <p style={{ color: '#1e88e5', fontSize: '14px' }}>
+                      ⏳ Fetching delivery details...
                     </p>
+                  ) : deliveryInfo.isServiceable ? (
+                    <div>
+                      <p style={{ color: 'var(--text-dark)' }}>
+                        Arrives by <strong>{deliveryInfo.estimatedDate}</strong> • {deliveryInfo.message}
+                      </p>
+                      {deliveryInfo.city && (
+                        <p style={{ color: '#666', fontSize: '13px', margin: '4px 0 0 0' }}>
+                          📍 {deliveryInfo.city}, {deliveryInfo.state}
+                        </p>
+                      )}
+                    </div>
                   ) : (
                     <p>{deliveryInfo.message}</p>
                   )}

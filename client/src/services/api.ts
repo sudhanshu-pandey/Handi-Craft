@@ -7,10 +7,14 @@ const REQUEST_TIMEOUT = 30000; // 30 seconds
 class APIClient {
   private baseURL: string;
   private token: string | null;
+  private refreshToken: string | null;
+  private isRefreshing: boolean = false;
+  private refreshQueue: ((token: string) => void)[] = [];
 
   constructor() {
     this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
     this.token = localStorage.getItem('accessToken');
+    this.refreshToken = localStorage.getItem('refreshToken');
   }
 
   setToken(token: string): void {
@@ -20,15 +24,78 @@ class APIClient {
     }
   }
 
+  setRefreshToken(refreshToken: string): void {
+    this.refreshToken = refreshToken;
+    if (refreshToken) {
+      localStorage.setItem('refreshToken', refreshToken);
+    }
+  }
+
   clearToken(): void {
     this.token = null;
+    this.refreshToken = null;
     localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
   }
 
   private createTimeoutPromise(): Promise<never> {
     return new Promise((_, reject) =>
       setTimeout(() => reject(new Error('Request timeout')), REQUEST_TIMEOUT)
     );
+  }
+
+  private addToRefreshQueue(callback: (token: string) => void): void {
+    this.refreshQueue.push(callback);
+  }
+
+  private processRefreshQueue(token: string): void {
+    this.refreshQueue.forEach(callback => callback(token));
+    this.refreshQueue = [];
+  }
+
+  private async refreshAccessToken(): Promise<string | null> {
+    if (this.isRefreshing) {
+      // If already refreshing, queue the request
+      return new Promise((resolve) => {
+        this.addToRefreshQueue((token: string) => {
+          resolve(token);
+        });
+      });
+    }
+
+    if (!this.refreshToken) {
+      this.clearToken();
+      throw new Error('Session expired. Please login again.');
+    }
+
+    this.isRefreshing = true;
+
+    try {
+      const url = `${this.baseURL}/auth/refresh`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: this.refreshToken }),
+      });
+
+      if (!response.ok) {
+        this.clearToken();
+        throw new Error('Failed to refresh token');
+      }
+
+      const data = await response.json();
+      const newAccessToken = data.accessToken;
+
+      this.setToken(newAccessToken);
+      this.isRefreshing = false;
+      this.processRefreshQueue(newAccessToken);
+
+      return newAccessToken;
+    } catch (error) {
+      this.isRefreshing = false;
+      this.clearToken();
+      throw error;
+    }
   }
 
   async request(endpoint: string, options: RequestOptions = {}): Promise<any> {
@@ -51,10 +118,38 @@ class APIClient {
       // Race between fetch and timeout
       const response = await Promise.race([fetchPromise, this.createTimeoutPromise()]);
 
-      // Handle 401 Unauthorized - token expired or invalid
+      // Handle 401 Unauthorized - try to refresh token
       if (response.status === 401) {
-        this.clearToken();
-        throw new Error('Session expired. Please login again.');
+        try {
+          const newAccessToken = await this.refreshAccessToken();
+          
+          // Retry the original request with new token
+          const retryHeaders: Record<string, string> = {
+            'Content-Type': 'application/json',
+            ...options.headers,
+          };
+
+          if (newAccessToken) {
+            retryHeaders['Authorization'] = `Bearer ${newAccessToken}`;
+          }
+
+          const retryFetchPromise = fetch(url, {
+            ...options,
+            headers: retryHeaders,
+          });
+
+          const retryResponse = await Promise.race([retryFetchPromise, this.createTimeoutPromise()]);
+
+          if (!retryResponse.ok) {
+            const error = await retryResponse.json().catch(() => ({}));
+            throw new Error(error.message || `HTTP ${retryResponse.status}`);
+          }
+
+          return await retryResponse.json();
+        } catch (refreshError) {
+          console.error('Token refresh failed:', refreshError);
+          throw new Error('Session expired. Please login again.');
+        }
       }
 
       if (!response.ok) {
@@ -79,15 +174,28 @@ class APIClient {
   }
 
   verifyOTP(phone: string, otp: string) {
-    return this.request('/auth/verify-otp', {
+    const response = this.request('/auth/verify-otp', {
       method: 'POST',
       body: JSON.stringify({ phone, otp }),
+    });
+    
+    // Store both tokens after successful OTP verification
+    return response.then((data: any) => {
+      if (data.accessToken) {
+        this.setToken(data.accessToken);
+      }
+      if (data.refreshToken) {
+        this.setRefreshToken(data.refreshToken);
+      }
+      return data;
     });
   }
 
   logout() {
-    this.clearToken();
-    return this.request('/auth/logout', { method: 'POST' });
+    return this.request('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken: this.refreshToken }) })
+      .finally(() => {
+        this.clearToken();
+      });
   }
 
   // Products endpoints
@@ -246,6 +354,18 @@ class APIClient {
     return this.request('/payments/initialize', {
       method: 'POST',
       body: JSON.stringify({ orderId, amount, paymentMethod }),
+    });
+  }
+
+  // Pincode endpoints
+  lookupPincode(pincode: string) {
+    return this.request(`/pincode/lookup/${pincode}`);
+  }
+
+  bulkPincodeLookup(pincodes: string[]) {
+    return this.request('/pincode/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ pincodes }),
     });
   }
 

@@ -231,7 +231,7 @@ export const updateCoupon = async (req, res) => {
     const updateData = req.body;
 
     const coupon = await Coupon.findByIdAndUpdate(id, updateData, {
-      new: true,
+      returnDocument: 'after',
       runValidators: true,
     });
 

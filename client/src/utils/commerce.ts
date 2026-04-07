@@ -1,4 +1,5 @@
 import { Product } from '../data/products'
+import api from '../services/api'
 
 export const formatCurrency = (value: number) => `₹${value.toLocaleString('en-IN')}`
 
@@ -22,33 +23,74 @@ export const getStockCount = (productId: number | string) => {
   return seed < 3 ? seed + 1 : seed + 3
 }
 
-export const estimateDeliveryByPincode = (pincode: string) => {
-  const normalized = pincode.trim()
+/**
+ * Fetch delivery estimate from API
+ * Replaces hardcoded logic with real API data
+ */
+export const estimateDeliveryByPincode = async (pincode: string) => {
+  try {
+    const normalized = pincode.trim()
 
-  if (!/^\d{6}$/.test(normalized)) {
+    if (!normalized || !/^\d{6}$/.test(normalized)) {
+      return {
+        isServiceable: false,
+        shippingCost: 0,
+        estimatedDate: '',
+        estimatedDays: 0,
+        message: 'Enter a valid 6-digit pincode',
+        city: '',
+        state: '',
+      }
+    }
+
+    // Call the API
+    const response = await api.lookupPincode(normalized)
+
+    if (!response.success) {
+      return {
+        isServiceable: false,
+        shippingCost: 0,
+        estimatedDate: '',
+        estimatedDays: 0,
+        message: 'Delivery not available for this pincode',
+        city: '',
+        state: '',
+      }
+    }
+
+    const data = response.data
+    const deliveryEstimate = data.deliveryEstimate
+    console.log('Delivery estimate data:', deliveryEstimate)
+    // Calculate estimated delivery date
+    const deliveryDate = new Date()
+    deliveryDate.setDate(deliveryDate.getDate() + deliveryEstimate.minDays)
+
+    return {
+      isServiceable: true,
+      shippingCost: deliveryEstimate.deliveryCharge.amount,
+      estimatedDate: deliveryDate.toLocaleDateString('en-IN', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+      }),
+      estimatedDays: deliveryEstimate.minDays,
+      message: deliveryEstimate.deliveryCharge.amount === 0
+        ? 'Free delivery available'
+        : `Shipping ₹${deliveryEstimate.deliveryCharge.amount}`,
+      city: data.city,
+      state: data.state,
+    }
+  } catch (error) {
+    console.error('Delivery estimate error:', error)
     return {
       isServiceable: false,
       shippingCost: 0,
       estimatedDate: '',
-      message: 'Enter a valid 6-digit pincode',
+      estimatedDays: 0,
+      message: 'Unable to fetch delivery estimate',
+      city: '',
+      state: '',
     }
-  }
-
-  const firstDigit = Number(normalized[0])
-  const deliveryDays = firstDigit <= 3 ? 2 : firstDigit <= 6 ? 4 : 6
-  const shippingCost = firstDigit <= 4 ? 0 : firstDigit <= 7 ? 49 : 99
-  const deliveryDate = new Date()
-  deliveryDate.setDate(deliveryDate.getDate() + deliveryDays)
-
-  return {
-    isServiceable: true,
-    shippingCost,
-    estimatedDate: deliveryDate.toLocaleDateString('en-IN', {
-      weekday: 'short',
-      day: '2-digit',
-      month: 'short',
-    }),
-    message: shippingCost === 0 ? 'Free delivery available' : `Shipping ₹${shippingCost}`,
   }
 }
 

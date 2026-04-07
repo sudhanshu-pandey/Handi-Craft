@@ -40,7 +40,6 @@ export const fetchAllCoupons = async (): Promise<ICoupon[]> => {
     const response = await axios.get(`${API_BASE_URL}/coupons`)
     return response.data.data || []
   } catch (error) {
-    console.error('Error fetching coupons:', error)
     return []
   }
 }
@@ -76,7 +75,6 @@ export const getCouponByCode = async (code: string): Promise<ICoupon | null> => 
     const response = await axios.get(`${API_BASE_URL}/coupons/${code.toUpperCase()}`)
     return response.data.data || null
   } catch (error) {
-    console.error('Error fetching coupon:', error)
     return null
   }
 }

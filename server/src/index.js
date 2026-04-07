@@ -14,6 +14,7 @@ import wishlistRouter from "./routes/wishlist.route.js";
 import paymentRouter from "./routes/payment.route.js";
 import couponRouter from "./routes/coupon.route.js";
 import addressRouter from "./routes/address.route.js";
+import pincodeRouter from "./routes/pincode.route.js";
 
 dotenv.config();
 
@@ -47,6 +48,7 @@ app.use("/api/wishlist", wishlistRouter);
 app.use("/api/payments", paymentRouter);
 app.use("/api/coupons", couponRouter);
 app.use("/api/address", addressRouter);
+app.use("/api/pincode", pincodeRouter);
 
 // Server
 const PORT = process.env.PORT || 5000;

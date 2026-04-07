@@ -118,7 +118,7 @@ const updateOrderStatus = async (req, res) => {
     const order = await Order.findByIdAndUpdate(
       req.params.orderId,
       { status, updatedAt: Date.now() },
-      { new: true }
+      { returnDocument: 'after' }
     ).populate("items.product");
     
     if (!order) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Order not found" });
