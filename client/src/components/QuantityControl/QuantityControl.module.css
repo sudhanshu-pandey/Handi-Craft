@@ -9,8 +9,8 @@
 /* Add to Cart Button */
 .addButton {
   padding: 10px 16px;
-  background: linear-gradient(135deg, #ff9500 0%, #ff7f00 100%);
-  color: white;
+  background-color: var(--primary-color);
+  color: var(--text-on-primary);
   border: none;
   border-radius: 6px;
   font-size: 14px;
@@ -110,7 +110,7 @@
 .quantity {
   font-size: 16px;
   font-weight: 700;
-  color: #ff9500;
+  color: var(--primary-color);
 }
 
 .loadingSpinner {

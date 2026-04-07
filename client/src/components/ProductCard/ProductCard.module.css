@@ -127,7 +127,7 @@
   align-items: center;
   justify-content: center;
   padding: var(--spacing-sm) var(--spacing-md);
-  background-color: var(--secondary-color, #c8a882);
+  background-color: var(--primary-color);
   color: var(--text-on-primary);
   text-decoration: none;
   border-radius: var(--radius-md);
