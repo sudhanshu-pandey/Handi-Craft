@@ -4,6 +4,8 @@ import addressService from '../../services/address.service';
 export type Address = {
   _id: string;
   label: string;
+  name: string;
+  phone: string;
   line1: string;
   line2: string;
   city: string;

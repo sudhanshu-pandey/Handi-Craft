@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAppSelector, useAppDispatch } from '../store/hooks'
 import { clearCart as clearReduxCart } from '../store/slices/cartSlice'
-import { addNewAddress, updateAddressAsync, deleteAddressAsync } from '../store/slices/addressSlice'
+import { addNewAddress, updateAddressAsync, deleteAddressAsync, fetchAddresses } from '../store/slices/addressSlice'
 import { useCommerce } from '../context/CommerceContext'
 import { useAuth } from '../context/AuthContext'
 import useProducts from '../hooks/useProducts'
@@ -47,6 +47,13 @@ const Checkout = () => {
     }
   }, [allProducts.length, loadProducts])
 
+  // Load addresses on mount
+  useEffect(() => {
+    if (isLoggedIn && reduxAddresses.length === 0) {
+      dispatch(fetchAddresses() as any)
+    }
+  }, [isLoggedIn, reduxAddresses.length, dispatch])
+
   const activeItems = useMemo(
     () => {
       return reduxCart
@@ -85,11 +92,13 @@ const Checkout = () => {
     const defaultAddress = reduxAddresses.find((entry: any) => entry.isDefault) ?? reduxAddresses[0]
     if (defaultAddress && !selectedAddressId) {
       setSelectedAddressId(defaultAddress._id || defaultAddress.id)
+      setShowAddForm(false)
     }
-    if (reduxAddresses.length === 0) {
+    // Only show form if addresses are loaded and empty
+    if (reduxAddresses.length === 0 && !addressesLoading) {
       setShowAddForm(true)
     }
-  }, [reduxAddresses, selectedAddressId])
+  }, [reduxAddresses, selectedAddressId, addressesLoading])
 
   const handleAddressSubmit = async (address: any) => {
     try {
@@ -261,6 +270,8 @@ const Checkout = () => {
                       {address.isDefault && (
                         <span style={{ marginLeft: 6, fontSize: 11, padding: '2px 6px', borderRadius: 999, background: 'color-mix(in srgb, var(--primary) 14%, var(--bg-white))', color: 'var(--primary)', fontWeight: 700 }}>Default</span>
                       )}
+                      {address.name && <p style={{ margin: '2px 0', fontWeight: 600 }}>{address.name}</p>}
+                      {address.phone && <p style={{ margin: '2px 0', fontSize: '12px', color: 'var(--text-light)' }}>📞 {address.phone}</p>}
                       <p style={{ margin: '2px 0' }}>{address.line1}{address.line2 ? `, ${address.line2}` : ''}</p>
                       <p style={{ margin: '2px 0' }}>{address.city}, {address.state} – {address.pincode}</p>
                       {address.landmark && <p style={{ margin: '2px 0', fontSize: '12px', color: 'var(--text-light)' }}>Landmark: {address.landmark}</p>}
