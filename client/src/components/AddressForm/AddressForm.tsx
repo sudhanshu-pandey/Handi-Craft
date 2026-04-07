@@ -1,40 +1,9 @@
 import { ChangeEvent, FocusEvent, FormEvent, useEffect, useRef, useState } from 'react'
 import { Address } from '../../context/CommerceContext'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
+import useAddressValidation from '../../hooks/useAddressValidation'
 import api from '../../services/api'
 import styles from './AddressForm.module.css'
-
-/* ─── validation helpers ─────────────────────────────────── */
-
-const validators = {
-  label: (v: string) => {
-    if (!v.trim()) return 'Label is required'
-    return ''
-  },
-  pincode: (v: string) => {
-    if (!v.trim()) return 'Pincode is required'
-    if (!/^\d{6}$/.test(v.trim())) return 'Enter a valid 6-digit pincode'
-    return ''
-  },
-  line1: (v: string) => {
-    if (!v.trim()) return 'Address is required'
-    return ''
-  },
-  city: (v: string) => {
-    if (!v.trim()) return 'City is required'
-    return ''
-  },
-  state: (v: string) => {
-    if (!v.trim()) return 'State is required'
-    return ''
-  },
-}
-
-type FieldKey = keyof typeof validators
-
-type FormErrors = Partial<Record<FieldKey, string>>
-
-type PincodeStatus = 'idle' | 'loading' | 'found' | 'not_found'
 
 /* ─── props ──────────────────────────────────────────────── */
 
@@ -55,6 +24,8 @@ const AddressForm = ({
 }: AddressFormProps) => {
   const [form, setForm] = useState<any>({
     label: (initialAddress as any)?.label || 'Home',
+    name: (initialAddress as any)?.name ?? '',
+    phone: (initialAddress as any)?.phone ?? '',
     line1: (initialAddress as any)?.line1 ?? '',
     line2: (initialAddress as any)?.line2 ?? '',
     city: (initialAddress as any)?.city ?? '',
@@ -63,9 +34,8 @@ const AddressForm = ({
     landmark: (initialAddress as any)?.landmark ?? '',
   })
 
-  const [errors, setErrors] = useState<FormErrors>({})
-  const [touched, setTouched] = useState<Partial<Record<FieldKey, boolean>>>({})
-  const [pincodeStatus, setPincodeStatus] = useState<PincodeStatus>('idle')
+  const validation = useAddressValidation()
+  const [pincodeStatus, setPincodeStatus] = useState<'idle' | 'loading' | 'found' | 'not_found'>('idle')
   const [cityLocked, setCityLocked] = useState(false)
   const [stateLocked, setStateLocked] = useState(false)
   const lookupAbortRef = useRef<AbortController | null>(null)
@@ -96,23 +66,14 @@ const AddressForm = ({
           setCityLocked(true)
           setStateLocked(true)
           setPincodeStatus('found')
-          setErrors((current) => ({ ...current, pincode: '', city: '', state: '' }))
         } else {
           setPincodeStatus('not_found')
-          setErrors((current) => ({
-            ...current,
-            pincode: 'Pincode not serviceable. Enter city/state manually.',
-          }))
           setCityLocked(false)
           setStateLocked(false)
         }
       })
       .catch(() => {
         setPincodeStatus('not_found')
-        setErrors((current) => ({
-          ...current,
-          pincode: 'Unable to verify pincode. Enter city/state manually.',
-        }))
         setCityLocked(false)
         setStateLocked(false)
       })
@@ -131,43 +92,17 @@ const AddressForm = ({
     }
 
     setForm((current: any) => ({ ...current, [key]: value }))
-
-    if (key in validators) {
-      const error = validators[key as FieldKey](value)
-      setErrors((current) => ({ ...current, [key]: error }))
-    }
   }
 
   /* ── field blur ─────────────────────────────────────────── */
-  const handleBlur = (key: FieldKey) => (_event: FocusEvent<HTMLInputElement>) => {
-    setTouched((current) => ({ ...current, [key]: true }))
-    const error = validators[key](form[key] as string)
-    setErrors((current) => ({ ...current, [key]: error }))
+  const handleBlur = (fieldName: string) => (_event?: FocusEvent<HTMLInputElement>) => {
+    validation.setFieldTouched(fieldName)
+    validation.validateField(fieldName, form[fieldName])
   }
 
   /* ── validate all fields before submit ──────────────────── */
   const validateAll = (): boolean => {
-    const keys: FieldKey[] = ['label', 'pincode', 'line1', 'city', 'state']
-    const nextErrors: FormErrors = {}
-    const nextTouched: Partial<Record<FieldKey, boolean>> = {}
-    let valid = true
-
-    for (const key of keys) {
-      const error = validators[key](form[key] as string)
-      nextErrors[key] = error
-      nextTouched[key] = true
-      if (error) {
-        valid = false
-      }
-    }
-
-    if (!valid || pincodeStatus === 'not_found') {
-      valid = false
-    }
-
-    setErrors(nextErrors)
-    setTouched(nextTouched)
-    return valid
+    return validation.validateForm(form)
   }
 
   /* ── form submit ────────────────────────────────────────── */
@@ -183,19 +118,14 @@ const AddressForm = ({
 
   /* ── is form currently valid (for button state) ─────────── */
   const isFormValid = (): boolean => {
-    const keys: FieldKey[] = ['label', 'pincode', 'line1', 'city', 'state']
-    return (
-      keys.every((key) => !validators[key](form[key] as string)) &&
-      pincodeStatus !== 'not_found' &&
-      pincodeStatus !== 'loading'
-    )
+    return validation.isValid && pincodeStatus !== 'not_found' && pincodeStatus !== 'loading'
   }
 
   /* ── field input class helper ───────────────────────────── */
-  const inputClass = (key: FieldKey, extra = '') => {
-    const hasError = touched[key] && errors[key]
+  const inputClass = (key: string, extra = '') => {
+    const hasError = validation.isFieldTouched(key) && validation.hasFieldError(key)
     const hasValue = (form[key] as string).trim().length > 0
-    const isValid = !validators[key](form[key] as string)
+    const isValid = !validation.hasFieldError(key)
     return [
       styles.input,
       hasError ? styles.inputError : '',
@@ -207,10 +137,10 @@ const AddressForm = ({
   }
 
   /* ── error message helper ───────────────────────────────── */
-  const errorFor = (key: FieldKey) =>
-    touched[key] && errors[key] ? (
+  const errorFor = (key: string) =>
+    validation.isFieldTouched(key) && validation.hasFieldError(key) ? (
       <span className={styles.errorMsg} role="alert" data-testid={`error-${key}`}>
-        ⚠ {errors[key]}
+        ⚠ {validation.getFieldError(key)}
       </span>
     ) : null
 
@@ -229,9 +159,9 @@ const AddressForm = ({
               value={form.label}
               onChange={(e: any) => {
                 setForm((prev: any) => ({ ...prev, label: e.target.value }))
-                setErrors(prev => ({ ...prev, label: '' }))
+                validation.validateField('label', e.target.value)
               }}
-              onBlur={() => handleBlur('label' as any)(null as any)}
+              onBlur={() => handleBlur('label')}
               data-testid="address-label"
             >
               <option value="Home">Home</option>
@@ -243,7 +173,49 @@ const AddressForm = ({
         </div>
       </div>
 
-      {/* Pincode — full width with status badge */}
+      <div className={styles.grid2}>
+        {/* Name */}
+        <div className={styles.fieldGroup}>
+          <label className={styles.label} htmlFor="addr-name">
+            Full Name <span className={styles.required}>*</span>
+          </label>
+          <div className={styles.inputWrap}>
+            <input
+              id="addr-name"
+              className={inputClass('name')}
+              placeholder="Your full name"
+              autoComplete="name"
+              value={form.name}
+              onChange={handleChange('name' as any)}
+              onBlur={handleBlur('name')}
+              data-testid="address-name"
+            />
+          </div>
+          {errorFor('name')}
+        </div>
+
+        {/* Phone */}
+        <div className={styles.fieldGroup}>
+          <label className={styles.label} htmlFor="addr-phone">
+            Phone Number <span className={styles.required}>*</span>
+          </label>
+          <div className={styles.inputWrap}>
+            <input
+              id="addr-phone"
+              className={inputClass('phone')}
+              placeholder="10-digit mobile number"
+              autoComplete="tel"
+              inputMode="numeric"
+              maxLength={10}
+              value={form.phone}
+              onChange={handleChange('phone' as any)}
+              onBlur={handleBlur('phone')}
+              data-testid="address-phone"
+            />
+          </div>
+          {errorFor('phone')}
+        </div>
+      </div>
       <div className={styles.fieldGroup}>
         <label className={styles.label} htmlFor="addr-pincode">
           Pincode <span className={styles.required}>*</span>

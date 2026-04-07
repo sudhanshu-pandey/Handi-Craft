@@ -5,6 +5,8 @@ import { clearLocalCart } from '../utils/cartStorage'
 export type Address = {
   id?: string
   label: string
+  name: string
+  phone: string
   line1: string
   line2?: string
   city: string

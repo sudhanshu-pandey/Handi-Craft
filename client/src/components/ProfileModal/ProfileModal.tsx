@@ -6,6 +6,7 @@ import { removeItem as removeFromWishlist } from '../../store/slices/wishlistSli
 import { addNewAddress, updateAddressAsync, deleteAddressAsync, setDefaultAddressAsync } from '../../store/slices/addressSlice'
 import useProducts from '../../hooks/useProducts'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
+import useAddressValidation from '../../hooks/useAddressValidation'
 import api from '../../services/api'
 import styles from './ProfileModal.module.css'
 import { fetchOrders } from '../../store/slices/orderSlice'
@@ -340,7 +341,7 @@ const ProfileTab = ({ profile, wishlistCount, orders }: { profile: NonNullable<R
             />
           </div>
           <div className={styles.editField}>
-            <label>Mobile (Not editable)</label>
+            <label>Mobile</label>
             <input
               type="text"
               value={formatMobileNumber(profile.mobile)}
@@ -421,10 +422,13 @@ const ProfileTab = ({ profile, wishlistCount, orders }: { profile: NonNullable<R
 const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
   const dispatch = useAppDispatch()
   const { addresses: reduxAddresses, loading } = useAppSelector((state: any) => state.address)
+  const validation = useAddressValidation()
   const [isAddingAddress, setIsAddingAddress] = useState(false)
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     label: 'Home',
+    name: '',
+    phone: '',
     line1: '',
     line2: '',
     city: '',
@@ -481,11 +485,17 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
+  const handleFieldBlur = (fieldName: string) => {
+    validation.setFieldTouched(fieldName)
+    validation.validateField(fieldName, formData[fieldName as keyof typeof formData])
+  }
+
   const handleAddAddress = async () => {
     setError(null)
     
-    if (!formData.line1 || !formData.city || !formData.state || !formData.pincode) {
-      setError('Please fill all required fields')
+    // Validate form
+    if (!validation.validateForm(formData)) {
+      setError('Please correct the errors below')
       return
     }
 
@@ -496,12 +506,12 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
       } else {
         await dispatch(addNewAddress(formData) as any)
       }
-      
       // Reset form
-      setFormData({ label: 'Home', line1: '', line2: '', city: '', state: '', pincode: '', landmark: '' })
+      setFormData({ label: 'Home', name: '', phone: '', line1: '', line2: '', city: '', state: '', pincode: '', landmark: '' })
       setCityLocked(false)
       setStateLocked(false)
       setPincodeStatus('idle')
+      validation.resetValidation()
       setIsAddingAddress(false)
     } catch (err: any) {
       setError(err.message || 'Failed to save address')
@@ -546,6 +556,8 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
               <span className={styles.addressLabel}>{addr.label}</span>
               {addr.isDefault && <span className={styles.defaultBadge}>Default</span>}
             </div>
+            {addr.name && <p className={styles.addressText} style={{ fontWeight: 600 }}>{addr.name}</p>}
+            {addr.phone && <p className={styles.addressText} style={{ fontSize: '12px', color: 'var(--text-light)' }}>📞 {addr.phone}</p>}
             <p className={styles.addressText}>
               {addr.line1}, {addr.line2}
             </p>
@@ -562,6 +574,8 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
                   setEditingAddressId(addr._id || addr.id)
                   setFormData({
                     label: addr.label,
+                    name: addr.name || '',
+                    phone: addr.phone || '',
                     line1: addr.line1,
                     line2: addr.line2,
                     city: addr.city,
@@ -631,6 +645,64 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
               </select>
             </div>
 
+            {/* Name */}
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
+                Full Name *
+              </label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleAddressChange}
+                onBlur={() => handleFieldBlur('name')}
+                placeholder="Your full name"
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: validation.hasFieldError('name') ? '1px solid #d32f2f' : '1px solid rgba(125, 46, 79, 0.3)',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontFamily: 'inherit',
+                  backgroundColor: validation.hasFieldError('name') ? 'rgba(211, 47, 47, 0.05)' : 'transparent',
+                }}
+              />
+              {validation.hasFieldError('name') && (
+                <span style={{ fontSize: '11px', color: '#d32f2f', marginTop: '2px', display: 'block' }}>
+                  {validation.getFieldError('name')}
+                </span>
+              )}
+            </div>
+
+            {/* Phone */}
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
+                Phone Number *
+              </label>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleAddressChange}
+                onBlur={() => handleFieldBlur('phone')}
+                placeholder="10-digit mobile number"
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: validation.hasFieldError('phone') ? '1px solid #d32f2f' : '1px solid rgba(125, 46, 79, 0.3)',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontFamily: 'inherit',
+                  backgroundColor: validation.hasFieldError('phone') ? 'rgba(211, 47, 47, 0.05)' : 'transparent',
+                }}
+              />
+              {validation.hasFieldError('phone') && (
+                <span style={{ fontSize: '11px', color: '#d32f2f', marginTop: '2px', display: 'block' }}>
+                  {validation.getFieldError('phone')}
+                </span>
+              )}
+            </div>
+
             {/* Line 1 */}
             <div>
               <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
@@ -641,16 +713,23 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
                 name="line1"
                 value={formData.line1}
                 onChange={handleAddressChange}
+                onBlur={() => handleFieldBlur('line1')}
                 placeholder="Street address"
                 style={{
                   width: '100%',
                   padding: '8px',
-                  border: '1px solid rgba(125, 46, 79, 0.3)',
+                  border: validation.hasFieldError('line1') ? '1px solid #d32f2f' : '1px solid rgba(125, 46, 79, 0.3)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   fontFamily: 'inherit',
+                  backgroundColor: validation.hasFieldError('line1') ? 'rgba(211, 47, 47, 0.05)' : 'transparent',
                 }}
               />
+              {validation.hasFieldError('line1') && (
+                <span style={{ fontSize: '11px', color: '#d32f2f', marginTop: '2px', display: 'block' }}>
+                  {validation.getFieldError('line1')}
+                </span>
+              )}
             </div>
 
             {/* Line 2 */}
@@ -685,24 +764,35 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
                 name="pincode"
                 value={formData.pincode}
                 onChange={handleAddressChange}
+                onBlur={() => handleFieldBlur('pincode')}
                 placeholder="6-digit pincode"
                 style={{
                   width: '100%',
                   padding: '8px',
-                  border: '1px solid rgba(125, 46, 79, 0.3)',
+                  border: validation.hasFieldError('pincode') ? '1px solid #d32f2f' : '1px solid rgba(125, 46, 79, 0.3)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   fontFamily: 'inherit',
+                  backgroundColor: validation.hasFieldError('pincode') ? 'rgba(211, 47, 47, 0.05)' : 'transparent',
                 }}
               />
-              {pincodeStatus === 'loading' && (
-                <span style={{ fontSize: '11px', color: 'var(--primary)', marginTop: '2px', display: 'block' }}>🔄 Looking up pincode...</span>
+              {validation.hasFieldError('pincode') && (
+                <span style={{ fontSize: '11px', color: '#d32f2f', marginTop: '2px', display: 'block' }}>
+                  {validation.getFieldError('pincode')}
+                </span>
               )}
-              {pincodeStatus === 'found' && (
-                <span style={{ fontSize: '11px', color: 'var(--primary)', marginTop: '2px', display: 'block' }}>✓ Pincode verified</span>
-              )}
-              {pincodeStatus === 'not_found' && formData.pincode && /^\d{6}$/.test(formData.pincode) && (
-                <span style={{ fontSize: '11px', color: '#ff9800', marginTop: '2px', display: 'block' }}>⚠ Pincode not found, enter city & state manually</span>
+              {!validation.hasFieldError('pincode') && (
+                <>
+                  {pincodeStatus === 'loading' && (
+                    <span style={{ fontSize: '11px', color: 'var(--primary)', marginTop: '2px', display: 'block' }}>🔄 Looking up pincode...</span>
+                  )}
+                  {pincodeStatus === 'found' && (
+                    <span style={{ fontSize: '11px', color: 'var(--primary)', marginTop: '2px', display: 'block' }}>✓ Pincode verified</span>
+                  )}
+                  {pincodeStatus === 'not_found' && formData.pincode && /^\d{6}$/.test(formData.pincode) && (
+                    <span style={{ fontSize: '11px', color: '#ff9800', marginTop: '2px', display: 'block' }}>⚠ Pincode not found, enter city & state manually</span>
+                  )}
+                </>
               )}
             </div>
 
@@ -717,20 +807,26 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
                   name="city"
                   value={formData.city}
                   onChange={handleAddressChange}
+                  onBlur={() => handleFieldBlur('city')}
                   placeholder="City"
                   disabled={cityLocked}
                   style={{
                     width: '100%',
                     padding: '8px',
-                    border: '1px solid rgba(125, 46, 79, 0.3)',
+                    border: validation.hasFieldError('city') ? '1px solid #d32f2f' : '1px solid rgba(125, 46, 79, 0.3)',
                     borderRadius: '6px',
                     fontSize: '14px',
                     fontFamily: 'inherit',
-                    backgroundColor: cityLocked ? 'rgba(125, 46, 79, 0.08)' : 'transparent',
+                    backgroundColor: cityLocked ? 'rgba(125, 46, 79, 0.08)' : validation.hasFieldError('city') ? 'rgba(211, 47, 47, 0.05)' : 'transparent',
                     cursor: cityLocked ? 'not-allowed' : 'text',
                     opacity: cityLocked ? 0.7 : 1,
                   }}
                 />
+                {validation.hasFieldError('city') && (
+                  <span style={{ fontSize: '11px', color: '#d32f2f', marginTop: '2px', display: 'block' }}>
+                    {validation.getFieldError('city')}
+                  </span>
+                )}
               </div>
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dark)', display: 'block', marginBottom: '4px' }}>
@@ -741,20 +837,26 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
                   name="state"
                   value={formData.state}
                   onChange={handleAddressChange}
+                  onBlur={() => handleFieldBlur('state')}
                   placeholder="State"
                   disabled={stateLocked}
                   style={{
                     width: '100%',
                     padding: '8px',
-                    border: '1px solid rgba(125, 46, 79, 0.3)',
+                    border: validation.hasFieldError('state') ? '1px solid #d32f2f' : '1px solid rgba(125, 46, 79, 0.3)',
                     borderRadius: '6px',
                     fontSize: '14px',
                     fontFamily: 'inherit',
-                    backgroundColor: stateLocked ? 'rgba(125, 46, 79, 0.08)' : 'transparent',
+                    backgroundColor: stateLocked ? 'rgba(125, 46, 79, 0.08)' : validation.hasFieldError('state') ? 'rgba(211, 47, 47, 0.05)' : 'transparent',
                     cursor: stateLocked ? 'not-allowed' : 'text',
                     opacity: stateLocked ? 0.7 : 1,
                   }}
                 />
+                {validation.hasFieldError('state') && (
+                  <span style={{ fontSize: '11px', color: '#d32f2f', marginTop: '2px', display: 'block' }}>
+                    {validation.getFieldError('state')}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -786,17 +888,17 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
             <button
               type="button"
               onClick={handleAddAddress}
-              disabled={loading}
+              disabled={loading || !validation.isValid}
               style={{
                 flex: 1,
                 padding: '8px 12px',
-                background: 'var(--primary)',
+                background: loading || !validation.isValid ? 'rgba(125, 46, 79, 0.4)' : 'var(--primary)',
                 color: '#fff',
                 border: 'none',
                 borderRadius: '6px',
                 fontWeight: 600,
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.6 : 1,
+                cursor: loading || !validation.isValid ? 'not-allowed' : 'pointer',
+                opacity: loading || !validation.isValid ? 0.6 : 1,
                 fontSize: '13px',
               }}
             >
@@ -807,11 +909,12 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
               onClick={() => {
                 setIsAddingAddress(false)
                 setEditingAddressId(null)
-                setFormData({ label: 'Home', line1: '', line2: '', city: '', state: '', pincode: '', landmark: '' })
+                setFormData({ label: 'Home', name: '', phone: '', line1: '', line2: '', city: '', state: '', pincode: '', landmark: '' })
                 setCityLocked(false)
                 setStateLocked(false)
                 setPincodeStatus('idle')
                 setError(null)
+                validation.resetValidation()
               }}
               style={{
                 flex: 1,
@@ -839,7 +942,7 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
           onClick={() => {
             setIsAddingAddress(true)
             setEditingAddressId(null)
-            setFormData({ label: 'Home', line1: '', line2: '', city: '', state: '', pincode: '', landmark: '' })
+            setFormData({ label: 'Home', name: '', phone: '', line1: '', line2: '', city: '', state: '', pincode: '', landmark: '' })
             setError(null)
           }}
           style={{ marginTop: '12px' }}

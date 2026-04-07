@@ -33,7 +33,8 @@ export const getAddresses = async (req, res) => {
  */
 export const addAddress = async (req, res) => {
   try {
-    const { label, line1, line2, city, state, pincode, landmark } = req.body;
+    console.log('Add Address Request Body:', req.body); // Debug log
+    const { label, name, phone, line1, line2, city, state, pincode, landmark } = req.body;
 
     // Validation
     if (!line1 || !city || !state || !pincode) {
@@ -53,6 +54,8 @@ export const addAddress = async (req, res) => {
     // Create new address
     const newAddress = {
       label: label || 'Home',
+      name: name || '',
+      phone: phone || '',
       line1,
       line2: line2 || '',
       city,
@@ -93,7 +96,7 @@ export const addAddress = async (req, res) => {
 export const updateAddress = async (req, res) => {
   try {
     const { id } = req.params;
-    const { label, line1, line2, city, state, pincode, landmark } = req.body;
+    const { label, name, phone, line1, line2, city, state, pincode, landmark } = req.body;
 
     const user = await User.findById(req.user.id);
     
@@ -117,6 +120,8 @@ export const updateAddress = async (req, res) => {
     // Update address fields
     if (line1) user.addresses[addressIndex].line1 = line1;
     if (line2) user.addresses[addressIndex].line2 = line2;
+    if (name) user.addresses[addressIndex].name = name;
+    if (phone) user.addresses[addressIndex].phone = phone;
     if (city) user.addresses[addressIndex].city = city;
     if (state) user.addresses[addressIndex].state = state;
     if (pincode) user.addresses[addressIndex].pincode = pincode;

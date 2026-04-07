@@ -16,8 +16,9 @@ export interface CartItem {
 }
 
 export interface Address {
-  id: string
-  fullName: string
+  id?: string
+  label: string
+  name: string
   phone: string
   line1: string
   line2?: string
