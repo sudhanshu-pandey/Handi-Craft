@@ -1086,8 +1086,14 @@ const WishlistTab = ({ onClose }: { onClose: () => void }) => {
                   type="button" 
                   className={styles.wishCartBtn}
                   onClick={() => {
-                    // Add to active cart (not as savedForLater)
-                    dispatch(addItem({ productId, quantity: 1 }));
+                    // Add to active cart (not as savedForLater) with product details
+                    dispatch(addItem({ 
+                      productId, 
+                      quantity: 1,
+                      productName: product.name,
+                      productPrice: product.price,
+                      productImage: product.image || product.images?.[0]
+                    }));
                     // Remove from wishlist
                     dispatch(removeFromWishlist(productId));
                     // Show success and close modal

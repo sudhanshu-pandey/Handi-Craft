@@ -10,6 +10,9 @@ interface QuantityControlProps {
   productId: number | string;
   initialQuantity?: number;
   stock?: number;  // Optional: use real stock from API if available
+  productName?: string;
+  productPrice?: number;
+  productImage?: string;
   onQuantityChange?: (quantity: number) => void;
 }
 
@@ -24,6 +27,9 @@ export const QuantityControl: React.FC<QuantityControlProps> = ({
   productId,
   initialQuantity = 0,
   stock,
+  productName,
+  productPrice,
+  productImage,
   onQuantityChange,
 }) => {
   const dispatch = useAppDispatch();
@@ -53,14 +59,20 @@ export const QuantityControl: React.FC<QuantityControlProps> = ({
     
     setIsLoading(true);
     try {
-      dispatch(addItem({ productId, quantity: 1 }));
+      dispatch(addItem({ 
+        productId, 
+        quantity: 1,
+        productName,
+        productPrice,
+        productImage
+      }));
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 2000);
       onQuantityChange?.(1);
     } finally {
       setIsLoading(false);
     }
-  }, [productId, stockCount, dispatch, onQuantityChange, showToast]);
+  }, [productId, stockCount, dispatch, onQuantityChange, showToast, productName, productPrice, productImage]);
 
   // Increment quantity
   const handleIncrement = useCallback(() => {
@@ -148,6 +160,7 @@ export const QuantityControl: React.FC<QuantityControlProps> = ({
             disabled={isLoading}
             className={`${styles.controlButton} ${styles.incrementButton}`}
             aria-label="Increase quantity"
+            title="Increase quantity"
           >
             +
           </button>

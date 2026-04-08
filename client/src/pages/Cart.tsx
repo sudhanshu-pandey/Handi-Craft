@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAppSelector, useAppDispatch } from '../store/hooks'
-import { updateQuantity, removeItem, toggleSaveForLater, moveToActiveCart, type CartItem } from '../store/slices/cartSlice'
+import { addItem as addItemToCart, updateQuantity, removeItem, type CartItem } from '../store/slices/cartSlice'
 import { addItem as addToWishlist, removeItem as removeFromWishlist } from '../store/slices/wishlistSlice'
 import useProducts from '../hooks/useProducts'
 import { useAuth } from '../context/AuthContext'
@@ -13,6 +13,7 @@ import styles from './commerce.module.css'
 const Cart = () => {
   const dispatch = useAppDispatch()
   const items = useAppSelector((state) => state.cart.items)
+  const wishlistItems = useAppSelector((state) => state.wishlist.items)
   const { allProducts, loadProducts } = useProducts()
   const { isLoggedIn, login } = useAuth()
   const navigate = useNavigate()
@@ -31,9 +32,7 @@ const Cart = () => {
   // Map cart items with product details from Redux
   const cartItems = useMemo(
     () => {
-      const filtered = items.filter((item: CartItem) => !item.savedForLater)
-      
-      const mapped = filtered.map((item: CartItem, index: number) => {
+      const mapped = items.map((item: CartItem, index: number) => {
         const itemIdStr = String(item.productId)
         
         // Try to find product by converting everything to string
@@ -44,29 +43,40 @@ const Cart = () => {
           return pid === itemIdStr || p_id === itemIdStr
         })
         
-        // Fallback: if no matching product found and we have products loaded, use index
-        if (!product && allProducts.length > 0 && index < allProducts.length) {
-          product = allProducts[index]
+        // If no product found, use stored product details or fallback
+        if (!product) {
+          if (item.productName || item.productPrice !== undefined) {
+            // Use stored product details
+            product = {
+              id: item.productId,
+              _id: item.productId,
+              name: item.productName || `Product ${item.productId}`,
+              price: item.productPrice ?? 0,
+              image: item.productImage || '/images/products/placeholder.svg'
+            }
+          } else if (allProducts.length > 0 && index < allProducts.length) {
+            // Fallback: use product at same index
+            product = allProducts[index]
+          }
         }
         
         return product ? { product, quantity: item.quantity, productId: item.productId } : null
       })
       
-      const filtered2 = mapped.filter((item: any): item is { product: any; quantity: number; productId: number | string } => item !== null)
-      return filtered2
+      const filtered = mapped.filter((item: any): item is { product: any; quantity: number; productId: number | string } => item !== null)
+      return filtered
     },
     [items, allProducts]
   )
 
-  const savedItems = useMemo(
+  // Get wishlist products
+  // Get wishlist products
+  const wishlistProducts = useMemo(
     () => {
-      const filtered = items.filter((item: CartItem) => item.savedForLater)
-      
-      return filtered
-        .map((item: CartItem, index: number) => {
+      return wishlistItems
+        .map((item: any) => {
           const itemIdStr = String(item.productId)
           
-          // Try to find product by converting everything to string
           let product = allProducts.find((p: any) => {
             const pid = p.id !== undefined ? String(p.id) : null
             const p_id = p._id !== undefined ? String(p._id) : null
@@ -74,16 +84,23 @@ const Cart = () => {
             return pid === itemIdStr || p_id === itemIdStr
           })
           
-          // Fallback: if no matching product found and we have products loaded, use index
-          if (!product && allProducts.length > 0 && index < allProducts.length) {
-            product = allProducts[index]
+          if (!product) {
+            if (item.productName || item.productPrice !== undefined) {
+              product = {
+                id: item.productId,
+                _id: item.productId,
+                name: item.productName || `Product ${item.productId}`,
+                price: item.productPrice ?? 0,
+                image: item.productImage || '/images/products/placeholder.svg'
+              }
+            }
           }
           
-          return product ? { product, quantity: item.quantity, productId: item.productId } : null
+          return product ? { product, productId: item.productId } : null
         })
-        .filter((item: any): item is { product: any; quantity: number; productId: number | string } => item !== null)
+        .filter((item: any): item is any => item !== null)
     },
-    [items, allProducts]
+    [wishlistItems, allProducts]
   )
 
   const subtotal = sumCartValue(cartItems)
@@ -140,7 +157,7 @@ const Cart = () => {
     <div className={`container ${styles.page}`} data-testid="cart-page">
       <h1 style={{ marginBottom: 16 }}>Smart Cart</h1>
 
-      {cartItems.length === 0 && savedItems.length === 0 ? (
+      {cartItems.length === 0 && wishlistProducts.length === 0 ? (
         <div className={styles.card} style={{ padding: 24, textAlign: 'center' }}>
           <h2 style={{ color: 'var(--text-dark)', marginBottom: 12 }}>Your cart is empty</h2>
           <p style={{ marginBottom: 24 }}>Add artisan products to continue checkout.</p>
@@ -155,7 +172,22 @@ const Cart = () => {
                   <img src={product.image} alt={product.name} loading="lazy" style={{ width: '100%', maxWidth: 90, height: 'auto', aspectRatio: '1', borderRadius: 10, objectFit: 'cover' }} />
                   <div>
                     <h3 style={{ color: 'var(--text-dark)', marginBottom: 4 }}>{product.name}</h3>
-                    <p style={{ marginBottom: 8 }}>{formatCurrency(product.price)}</p>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                      {product.originalPrice && product.originalPrice !== product.price ? (
+                        <>
+                          <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '0.9rem' }}>
+                            {formatCurrency(product.originalPrice)}
+                          </span>
+                          <span style={{ fontWeight: 'bold', color: 'var(--text-dark)' }}>
+                            {formatCurrency(product.price)}
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{ fontWeight: 'bold', color: 'var(--text-dark)' }}>
+                          {formatCurrency(product.price)}
+                        </span>
+                      )}
+                    </div>
                     
                     {/* Quantity controls */}
                     <div style={{ marginBottom: 10 }}>
@@ -183,35 +215,54 @@ const Cart = () => {
                   {/* Action buttons on the right for desktop */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 'fit-content' }}>
                     <button type="button" className={styles.ghostBtn} onClick={() => {
-                      dispatch(toggleSaveForLater(productId));
                       dispatch(addToWishlist(productId));
-                    }} style={{ whiteSpace: 'nowrap', fontSize: '13px', padding: '8px 10px' }}>Save for later</button>
+                      dispatch(removeItem(productId));
+                    }} style={{ whiteSpace: 'nowrap', fontSize: '13px', padding: '8px 10px' }}>❤️ Add to wishlist</button>
                     <button type="button" className={styles.ghostBtn} onClick={() => dispatch(removeItem(productId))} style={{ whiteSpace: 'nowrap', fontSize: '13px', padding: '8px 10px' }}>Remove</button>
                   </div>
                 </div>
               </article>
             ))}
-
-            {savedItems.length > 0 && (
+            {wishlistProducts.length > 0 && (
               <div style={{ marginTop: 18 }}>
-                <h3>Saved for later</h3>
-                {savedItems.map(({ product, productId }: { product: any; quantity: number; productId: number | string }) => (
+                <h3>❤️ Wishlist ({wishlistProducts.length})</h3>
+                {wishlistProducts.map(({ product, productId }: { product: any; productId: number | string }) => (
                   <article key={productId} className={styles.softCard} style={{ padding: 12, marginTop: 10 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'min(90px, 20%) 1fr auto', gap: 12, alignItems: 'center' }}>
                       <img src={product.image} alt={product.name} loading="lazy" style={{ width: '100%', maxWidth: 90, height: 'auto', aspectRatio: '1', borderRadius: 10, objectFit: 'cover' }} />
                       <div>
                         <strong style={{ color: 'var(--text-dark)', display: 'block', marginBottom: 4 }}>{product.name}</strong>
-                        <p style={{ marginBottom: 0 }}>{formatCurrency(product.price)}</p>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          {product.originalPrice && product.originalPrice !== product.price ? (
+                            <>
+                              <span style={{ textDecoration: 'line-through', color: '#999', fontSize: '0.9rem' }}>
+                                {formatCurrency(product.originalPrice)}
+                              </span>
+                              <span style={{ fontWeight: 'bold', color: 'var(--text-dark)' }}>
+                                {formatCurrency(product.price)}
+                              </span>
+                            </>
+                          ) : (
+                            <span style={{ fontWeight: 'bold', color: 'var(--text-dark)' }}>
+                              {formatCurrency(product.price)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 'fit-content' }}>
                         <button type="button" className={styles.secondaryBtn} onClick={() => {
-                          dispatch(moveToActiveCart(productId));
+                          dispatch(addItemToCart({ 
+                            productId, 
+                            quantity: 1,
+                            productName: product.name,
+                            productPrice: product.price,
+                            productImage: product.image
+                          }));
                           dispatch(removeFromWishlist(productId));
                         }} style={{ whiteSpace: 'nowrap', fontSize: '13px', padding: '8px 10px' }}>
-                          Move to cart
+                          Add to cart
                         </button>
                         <button type="button" className={styles.ghostBtn} onClick={() => {
-                          dispatch(removeItem(productId));
                           dispatch(removeFromWishlist(productId));
                         }} style={{ whiteSpace: 'nowrap', fontSize: '13px', padding: '8px 10px' }}>
                           Remove

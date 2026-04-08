@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { addItem, updateQuantity } from '../store/slices/cartSlice'
+import { addItem as addToWishlist, removeItem as removeFromWishlist } from '../store/slices/wishlistSlice'
 import useProducts from '../hooks/useProducts'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import LoginModal from '../components/LoginModal/LoginModal'
@@ -65,12 +66,14 @@ const ProductDetails = () => {
   const { isLoggedIn, login } = useAuth()
   const dispatch = useAppDispatch()
   const cartItems = useAppSelector((state) => state.cart.items)
+  const wishlistItems = useAppSelector((state) => state.wishlist.items)
   const { loadProductById, getProductById, getAllProducts } = useProducts()
   
   // Handle both numeric IDs and MongoDB ObjectId strings
   const productId = id || ''
   const numericId = Number(productId)
   const [product, setProduct] = useState<any>(null)
+  const [isWishlisted, setIsWishlisted] = useState(false)
 
   // Get current cart quantity for this product
   const cartQuantity = useMemo(() => {
@@ -110,6 +113,16 @@ const ProductDetails = () => {
     }
   }, [productId, numericId, loadProductById, getProductById])
 
+  // Sync isWishlisted state with Redux wishlist
+  useEffect(() => {
+    const isInWishlist = wishlistItems.some((item: any) => {
+      const itemIdStr = String(item.productId)
+      const productIdStr = String(productId)
+      return itemIdStr === productIdStr || item.productId === productId
+    })
+    setIsWishlisted(isInWishlist)
+  }, [wishlistItems, productId])
+
   // Scroll to top when product details page loads
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -134,7 +147,6 @@ const ProductDetails = () => {
     const idForCount = !isNaN(numericId) && numericId > 0 ? numericId : productId
     return 6 + (typeof idForCount === 'string' ? idForCount.charCodeAt(0) : idForCount) % 18
   })
-  const [isWishlisted, setIsWishlisted] = useState(false)
 
   const debouncedPincode = useDebouncedValue(pincodeInput, 350)
   // Use actual stock from product API if available, otherwise fallback to calculated value
@@ -313,7 +325,13 @@ const ProductDetails = () => {
       setToast(`✓ Updated to ${totalQuantity} in cart`)
     } else {
       // Item doesn't exist - add it
-      dispatch(addItem({ productId, quantity }))
+      dispatch(addItem({ 
+        productId, 
+        quantity,
+        productName: product.name,
+        productPrice: product.price,
+        productImage: product.images?.[0] || product.image
+      }))
       setToast(`✓ Added ${quantity} to cart`)
     }
     // Reset quantity for next add
@@ -339,7 +357,13 @@ const ProductDetails = () => {
     
     // Use product.id if available, otherwise use _id
     const productId = product.id || product._id
-    dispatch(addItem({ productId, quantity }))
+    dispatch(addItem({ 
+      productId, 
+      quantity,
+      productName: product.name,
+      productPrice: product.price,
+      productImage: product.images?.[0] || product.image
+    }))
     navigate('/checkout')
   }
 
@@ -366,7 +390,13 @@ const ProductDetails = () => {
         dispatch(updateQuantity({ productId, quantity: totalQuantity }))
         setToast(`✓ Updated to ${totalQuantity} in cart`)
       } else {
-        dispatch(addItem({ productId, quantity }))
+        dispatch(addItem({ 
+          productId, 
+          quantity,
+          productName: product.name,
+          productPrice: product.price,
+          productImage: product.images?.[0] || product.image
+        }))
         setToast(`✓ Added ${quantity} to cart`)
       }
       setQuantity(1)
@@ -379,7 +409,13 @@ const ProductDetails = () => {
       return
     }
     
-    dispatch(addItem({ productId, quantity }))
+    dispatch(addItem({ 
+      productId, 
+      quantity,
+      productName: product.name,
+      productPrice: product.price,
+      productImage: product.images?.[0] || product.image
+    }))
     navigate('/checkout')
   }
 
@@ -448,7 +484,7 @@ const ProductDetails = () => {
   if (!product) {
     return (
       <div className="container" style={{ padding: '40px 0' }}>
-        <h2>Product not found</h2>
+        <h2 style={{ margin: '20px 0' }}>Product not found</h2>
         <Link to="/products" className={styles.primaryBtn}>Back to products</Link>
       </div>
     )
@@ -628,8 +664,14 @@ const ProductDetails = () => {
                     type="button"
                     className={styles.ghostBtn}
                     onClick={() => {
-                      setIsWishlisted(!isWishlisted)
-                      setToast(isWishlisted ? 'Removed from wishlist' : 'Added to wishlist')
+                      const productIdToWishlist = product.id || product._id || productId
+                      if (isWishlisted) {
+                        dispatch(removeFromWishlist(productIdToWishlist))
+                        setToast('Removed from wishlist')
+                      } else {
+                        dispatch(addToWishlist(productIdToWishlist))
+                        setToast('Added to wishlist')
+                      }
                     }}
                   >
                     {isWishlisted ? '♥ Wishlisted' : '♡ Wishlist'}

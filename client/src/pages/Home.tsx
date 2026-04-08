@@ -129,7 +129,9 @@ const Home = () => {
                       image: product.image,
                       category: product.category,
                       sale: product.sale,
-                      stock: product.stock
+                      stock: product.stock,
+                      rating: product.rating,
+                      reviewCount: product.reviewCount
                     }}
                   />
                 ))}

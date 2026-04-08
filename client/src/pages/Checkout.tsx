@@ -57,7 +57,6 @@ const Checkout = () => {
   const activeItems = useMemo(
     () => {
       return reduxCart
-        .filter((entry: any) => !entry.savedForLater)
         .map((entry: any) => {
           const itemIdStr = String(entry.productId)
           const product = allProducts.find((p: any) => {

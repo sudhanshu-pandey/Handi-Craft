@@ -13,6 +13,8 @@ interface Product {
   category: string
   sale?: boolean
   stock?: number
+  rating?: number
+  reviewCount?: number
 }
 
 interface ProductCardProps {
@@ -52,12 +54,21 @@ const ProductCard = memo(({ product }: ProductCardProps) => {
           <p className={styles.gst}>inc. GST</p>
         </div>
         <div className={styles.rating}>
-          ⭐⭐⭐⭐⭐ 0 out of 5
+          <span className={styles.stars}>
+            {'⭐'.repeat(Math.round(product.rating || 0))}
+            {'☆'.repeat(5 - Math.round(product.rating || 0))}
+          </span>
+          <span className={styles.ratingText}>
+            {product.rating ? product.rating.toFixed(1) : '0'} ({product.reviewCount || 0} reviews)
+          </span>
         </div>
         <div className={styles.buttonGroup}>
           <QuantityControl 
             productId={productId}
             stock={product.stock}
+            productName={product.name}
+            productPrice={product.price}
+            productImage={product.image}
           />
           <Link to={`/products/${navigateId}`} className={styles.viewButton}>
             View

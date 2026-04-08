@@ -192,6 +192,16 @@ const productSlice = createSlice({
         } else {
           state.items.push(action.payload);
         }
+        
+        // Also add/update in allProducts for consistency
+        const allProductsIndex = state.allProducts.findIndex(
+          (p) => p._id === action.payload._id || p.id === action.payload.id
+        );
+        if (allProductsIndex >= 0) {
+          state.allProducts[allProductsIndex] = action.payload;
+        } else {
+          state.allProducts.push(action.payload);
+        }
       })
       .addCase(fetchProductById.rejected, (state, action) => {
         state.loading = false;

@@ -3,7 +3,9 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 export interface CartItem {
   productId: number | string;
   quantity: number;
-  savedForLater: boolean;
+  productName?: string;
+  productPrice?: number;
+  productImage?: string;
 }
 
 export interface CartState {
@@ -30,14 +32,13 @@ const cartSlice = createSlice({
     // Load cart from localStorage
     loadCart: (state, action: PayloadAction<CartItem[]>) => {
       state.items = action.payload;
-      state.itemCount = action.payload.filter((item) => !item.savedForLater).length;
+      state.itemCount = action.payload.length;
     },
 
     // Add item to cart
-    // If item is saved-for-later, move it to active cart
-    // If item is already active, increase quantity
-    addItem: (state, action: PayloadAction<{ productId: number | string; quantity: number }>) => {
-      const { productId, quantity } = action.payload;
+    // If item is already in cart, increase quantity
+    addItem: (state, action: PayloadAction<{ productId: number | string; quantity: number; productName?: string; productPrice?: number; productImage?: string }>) => {
+      const { productId, quantity, productName, productPrice, productImage } = action.payload;
       
       // Find existing item with flexible ID matching (handle numeric and string IDs)
       const existingItem = state.items.find((item) => {
@@ -47,25 +48,21 @@ const cartSlice = createSlice({
       });
 
       if (existingItem) {
-        // If item exists and is saved-for-later, move to active cart
-        if (existingItem.savedForLater) {
-          existingItem.savedForLater = false;
-          existingItem.quantity = quantity; // Set quantity to new amount, not increment
-        } else {
-          // If item is already active, increase quantity
-          existingItem.quantity += quantity;
-        }
+        // If item is already in cart, increase quantity
+        existingItem.quantity += quantity;
       } else {
-        // Create new active cart item
+        // Create new cart item with product details
         state.items.push({
           productId,
           quantity,
-          savedForLater: false,
+          productName,
+          productPrice,
+          productImage,
         });
       }
 
-      // Update item count (exclude saved for later)
-      state.itemCount = state.items.filter((item) => !item.savedForLater).length;
+      // Update item count
+      state.itemCount = state.items.length;
     },
 
     // Update item quantity
@@ -93,7 +90,7 @@ const cartSlice = createSlice({
       }
 
       // Update item count
-      state.itemCount = state.items.filter((item) => !item.savedForLater).length;
+      state.itemCount = state.items.length;
     },
 
     // Remove item from cart
@@ -104,37 +101,7 @@ const cartSlice = createSlice({
         const newIdStr = String(productId);
         return !(existingIdStr === newIdStr || item.productId === productId);
       });
-      state.itemCount = state.items.filter((item) => !item.savedForLater).length;
-    },
-
-    // Toggle save for later
-    toggleSaveForLater: (state, action: PayloadAction<number | string>) => {
-      const productId = action.payload;
-      const item = state.items.find((item) => {
-        const existingIdStr = String(item.productId);
-        const newIdStr = String(productId);
-        return existingIdStr === newIdStr || item.productId === productId;
-      });
-
-      if (item) {
-        item.savedForLater = !item.savedForLater;
-      }
-
-      // Update item count
-      state.itemCount = state.items.filter((item) => !item.savedForLater).length;
-    },
-
-    // Move item from saved-for-later to active cart
-    moveToActiveCart: (state, action: PayloadAction<number | string>) => {
-      const productId = action.payload;
-      const item = state.items.find((item) => item.productId === productId);
-
-      if (item && item.savedForLater) {
-        item.savedForLater = false;
-      }
-
-      // Update item count
-      state.itemCount = state.items.filter((item) => !item.savedForLater).length;
+      state.itemCount = state.items.length;
     },
 
     // Clear entire cart
@@ -152,7 +119,7 @@ const cartSlice = createSlice({
     // Sync cart from server (for logged-in users)
     syncCart: (state, action: PayloadAction<CartItem[]>) => {
       state.items = action.payload;
-      state.itemCount = action.payload.filter((item) => !item.savedForLater).length;
+      state.itemCount = action.payload.length;
     },
   },
 });
@@ -162,8 +129,6 @@ export const {
   addItem,
   updateQuantity,
   removeItem,
-  toggleSaveForLater,
-  moveToActiveCart,
   clearCart,
   setTotal,
   syncCart,

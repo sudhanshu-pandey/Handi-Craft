@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import styles from './Header.module.css'
 import LoginModal from '../LoginModal/LoginModal'
 import ProfileModal from '../ProfileModal/ProfileModal'
+import SearchBar from '../SearchBar/SearchBar'
 import { useAuth } from '../../context/AuthContext'
 import MiniCart from '../MiniCart/MiniCart'
 
@@ -97,9 +98,8 @@ const Header = () => {
 
       {/* Search Bar */}
       {isSearchOpen && (
-        <div className={styles.searchBar}>
-          <input type="text" placeholder="Search products..." />
-          <button>Search</button>
+        <div className={styles.searchBarWrapper}>
+          <SearchBar isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
         </div>
       )}
 

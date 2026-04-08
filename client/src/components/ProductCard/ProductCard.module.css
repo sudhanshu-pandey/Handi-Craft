@@ -113,6 +113,21 @@
   font-size: var(--font-size-sm);
   color: var(--text-light);
   margin: var(--spacing-sm) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.stars {
+  font-size: 1.2em;
+  line-height: 1;
+  letter-spacing: 2px;
+}
+
+.ratingText {
+  font-size: var(--font-size-sm);
+  color: var(--text-light);
+  white-space: nowrap;
 }
 
 .buttonGroup {

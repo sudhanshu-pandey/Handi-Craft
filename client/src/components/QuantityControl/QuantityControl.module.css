@@ -53,7 +53,7 @@
 }
 
 .quantityControls:hover {
-  border-color: #ff9500;
+  border-color: var(--primary-color);
   box-shadow: 0 2px 8px rgba(255, 149, 0, 0.15);
 }
 
@@ -76,12 +76,13 @@
 }
 
 .controlButton:hover:not(:disabled) {
-  background-color: #ff9500;
-  color: white;
+  background-color: var(--primary-color);
+  color: var(--text-on-primary);
+  border-radius: 0%;
 }
 
 .controlButton:active:not(:disabled) {
-  background-color: #ff7f00;
+  background-color: var(--primary-color);
 }
 
 .controlButton:disabled {

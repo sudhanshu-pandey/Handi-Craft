@@ -10,6 +10,7 @@ const MiniCart = () => {
   const [isOpen, setIsOpen] = useState(false)
   const dispatch = useAppDispatch()
   const items = useAppSelector((state) => state.cart.items)
+  const cartItemCount = useAppSelector((state) => state.cart.itemCount)
   const navigate = useNavigate()
   const { allProducts, loadProducts } = useProducts()
 
@@ -23,19 +24,44 @@ const MiniCart = () => {
   const activeItems = useMemo(
     () => {
       return items
-        .filter((item: CartItem) => !item.savedForLater)
         .map((item: CartItem) => {
           const itemIdStr = String(item.productId)
-          // Try to find product by ID match
+          // First try to find product by ID match
           let product = allProducts.find((p: any) => {
             const pid = p.id !== undefined ? String(p.id) : null
             const p_id = p._id !== undefined ? String(p._id) : null
             return pid === itemIdStr || p_id === itemIdStr
           })
           
-          return product ? { product, quantity: item.quantity } : null
+          // If product found, use it; otherwise use stored product details or placeholder
+          if (product) {
+            return { product, quantity: item.quantity }
+          } else if (item.productName || item.productPrice !== undefined) {
+            // Use stored product details in cart item
+            return {
+              product: {
+                id: item.productId,
+                _id: item.productId,
+                name: item.productName || `Product ${item.productId}`,
+                price: item.productPrice ?? 0,
+                image: item.productImage || '/images/products/placeholder.svg'
+              },
+              quantity: item.quantity
+            }
+          } else {
+            // Fallback placeholder
+            return {
+              product: {
+                id: item.productId,
+                _id: item.productId,
+                name: `Product ${item.productId}`,
+                price: 0,
+                image: '/images/products/placeholder.svg'
+              },
+              quantity: item.quantity
+            }
+          }
         })
-        .filter((item: any): item is { product: any; quantity: number } => item !== null)
     },
     [items, allProducts],
   )
@@ -66,14 +92,14 @@ const MiniCart = () => {
       >
         <button
           type="button"
-          className={`${styles.trigger} ${totalItems > 0 ? styles.triggerActive : ''}`.trim()}
+          className={`${styles.trigger} ${cartItemCount > 0 ? styles.triggerActive : ''}`.trim()}
           onClick={handleTriggerClick}
-          aria-label={`Cart, ${totalItems} items`}
+          aria-label={`Cart, ${cartItemCount} items`}
         >
           🛒
           <span className={styles.cartLabel}>Cart</span>
-          {totalItems > 0 && (
-            <span className={styles.count}>{totalItems > 99 ? '99+' : totalItems}</span>
+          {cartItemCount > 0 && (
+            <span className={styles.count}>{cartItemCount > 99 ? '99+' : cartItemCount}</span>
           )}
         </button>
 

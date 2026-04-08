@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { useAppDispatch, useAppSelector } from './store/hooks'
 import { loadCart } from './store/slices/cartSlice'
-import { loadWishlist, addItem as addToWishlist } from './store/slices/wishlistSlice'
+import { loadWishlist } from './store/slices/wishlistSlice'
 import { loadCartFromLocalStorage, loadWishlistFromLocalStorage } from './store/middleware/cartPersistence'
 import { ToastProvider } from './context/ToastContext'
 import api from './services/api'
@@ -24,7 +24,6 @@ const OrderTracking = lazy(() => import('./pages/OrderTracking.tsx'))
 function App() {
   const dispatch = useAppDispatch()
   const cartItems = useAppSelector((state) => state.cart.items)
-  const wishlistItems = useAppSelector((state) => state.wishlist.items)
 
   // Load cart and wishlist from localStorage on app start
   useEffect(() => {
@@ -38,22 +37,6 @@ function App() {
       dispatch(loadWishlist(wishlistData))
     }
   }, [dispatch])
-
-  // Sync saved items from cart to wishlist
-  useEffect(() => {
-    const cartData = loadCartFromLocalStorage()
-    const savedItemProductIds = cartData
-      .filter((item: any) => item.savedForLater)
-      .map((item: any) => item.productId)
-
-    // Add saved items to wishlist if not already there
-    savedItemProductIds.forEach((productId: number) => {
-      const isInWishlist = wishlistItems.some((item: any) => item.productId === productId)
-      if (!isInWishlist) {
-        dispatch(addToWishlist(productId))
-      }
-    })
-  }, [dispatch, wishlistItems])
 
   // Listen for login event and sync cart to database
   useEffect(() => {
