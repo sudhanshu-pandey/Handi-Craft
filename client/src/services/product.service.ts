@@ -8,8 +8,12 @@ import api from './api';
 export interface FetchProductsParams {
   page?: number;
   limit?: number;
-  sort?: string;
-  order?: 'asc' | 'desc';
+  sort?: 'price_asc' | 'price_desc' | 'newest' | 'popularity' | 'none';
+  minPrice?: number;
+  maxPrice?: number;
+  category?: string;
+  minRating?: number | string;
+  inStock?: boolean;
 }
 
 export interface ProductsResponse {
@@ -22,7 +26,7 @@ export interface ProductsResponse {
 
 class ProductService {
   /**
-   * Get all products with pagination
+   * Get all products with pagination, filtering, and sorting
    */
   async getAllProducts(params?: FetchProductsParams): Promise<ProductsResponse> {
     try {
@@ -78,7 +82,7 @@ class ProductService {
   }
 
   /**
-   * Filter products
+   * Filter and sort products
    */
   async filterProducts(filters: Record<string, any>): Promise<any[]> {
     try {
@@ -93,16 +97,45 @@ class ProductService {
   }
 
   /**
-   * Build query string from params
+   * Build query string from params with filter support
+   * Example: ?page=1&limit=20&sort=price_asc&minPrice=100&maxPrice=5000&category=electronics
    */
   private buildQueryString(params?: FetchProductsParams): string {
     if (!params) return '';
     
     const queryParams = new URLSearchParams();
+    
+    // Pagination
     if (params.page) queryParams.append('page', String(params.page));
     if (params.limit) queryParams.append('limit', String(params.limit));
-    if (params.sort) queryParams.append('sort', params.sort);
-    if (params.order) queryParams.append('order', params.order);
+    
+    // Sorting
+    if (params.sort && params.sort !== 'none') {
+      queryParams.append('sort', params.sort);
+    }
+    
+    // Price range
+    if (params.minPrice !== undefined && params.minPrice > 0) {
+      queryParams.append('minPrice', String(params.minPrice));
+    }
+    if (params.maxPrice !== undefined && params.maxPrice < 100000) {
+      queryParams.append('maxPrice', String(params.maxPrice));
+    }
+    
+    // Category
+    if (params.category) {
+      queryParams.append('category', params.category);
+    }
+    
+    // Rating
+    if (params.minRating) {
+      queryParams.append('minRating', String(params.minRating));
+    }
+    
+    // Stock
+    if (params.inStock) {
+      queryParams.append('inStock', 'true');
+    }
     
     const queryString = queryParams.toString();
     return queryString ? `?${queryString}` : '';

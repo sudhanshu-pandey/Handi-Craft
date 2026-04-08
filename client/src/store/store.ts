@@ -4,7 +4,9 @@ import wishlistReducer from './slices/wishlistSlice';
 import productReducer from './slices/productSlice';
 import addressReducer from './slices/addressSlice';
 import orderReducer from './slices/orderSlice';
+import filterReducer from './slices/filterSlice';
 import { cartPersistenceMiddleware } from './middleware/cartPersistence';
+import { filterPersistenceMiddleware } from './middleware/filterPersistence';
 
 /**
  * Redux Store Configuration
@@ -17,9 +19,13 @@ const store = configureStore({
     products: productReducer,
     address: addressReducer,
     orders: orderReducer,
+    filters: filterReducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware().concat(cartPersistenceMiddleware as any),
+    getDefaultMiddleware().concat(
+      cartPersistenceMiddleware as any,
+      filterPersistenceMiddleware as any
+    ),
 }) as any;
 
 export { store };
