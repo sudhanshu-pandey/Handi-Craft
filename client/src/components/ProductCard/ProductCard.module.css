@@ -116,6 +116,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
+  flex-wrap: wrap;
 }
 
 .stars {
@@ -127,7 +128,10 @@
 .ratingText {
   font-size: var(--font-size-sm);
   color: var(--text-light);
-  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+  display: block;
 }
 
 .buttonGroup {
@@ -197,6 +201,23 @@
     font-size: var(--font-size-base);
   }
 
+  .rating {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .stars {
+    width: 100%;
+    margin-bottom: 0.25rem;
+  }
+
+  .ratingText {
+    font-size: 0.75rem;
+    line-height: 1.2;
+    display: block;
+    width: 100%;
+  }
+
   .buttonGroup {
     grid-template-columns: 1fr;
     gap: var(--spacing-sm);
@@ -244,6 +265,26 @@
   .discount {
     font-size: 0.7rem;
     padding: 2px 4px;
+  }
+
+  .rating {
+    font-size: 0.7rem;
+    margin: 0.5rem 0;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .stars {
+    font-size: 0.9em;
+    letter-spacing: 1px;
+    width: 100%;
+  }
+
+  .ratingText {
+    font-size: 0.7rem;
+    line-height: 1.1;
+    display: block;
+    width: 100%;
   }
 
   .price {

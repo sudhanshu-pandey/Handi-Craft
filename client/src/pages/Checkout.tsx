@@ -12,7 +12,7 @@ import { formatCurrency, sumCartValue, sumOriginalCartValue } from '../utils/com
 import api from '../services/api'
 import styles from './commerce.module.css'
 
-type Step = 1 | 2 | 3
+type Step = 1 | 2
 
 type PaymentMethod = 'upi' | 'card' | 'netbanking' | 'cod' | 'razorpay' | 'stripe'
 
@@ -75,7 +75,7 @@ const Checkout = () => {
   const originalTotal = sumOriginalCartValue(activeItems)
   const discount = Math.max(0, originalTotal - subtotal)
   const deliveryFee = subtotal > 2499 || subtotal === 0 ? 0 : 49
-  const finalTotal = subtotal + deliveryFee
+  const finalTotal = subtotal - discount + deliveryFee
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -120,7 +120,7 @@ const Checkout = () => {
     if (!selectedAddressId) {
       return
     }
-    setStep(3)
+    setStep(2)
   }
 
   const validatePayment = () => {
@@ -239,13 +239,13 @@ const Checkout = () => {
       <h1 style={{ marginBottom: 16 }}>Checkout</h1>
 
       <div className={styles.tabs}>
-        <span className={`${styles.tab} ${step === 1 ? styles.tabActive : ''}`.trim()}>1. Address</span>
-        <span className={`${styles.tab} ${step === 2 ? styles.tabActive : ''}`.trim()}>2. Summary</span>
-        <span className={`${styles.tab} ${step === 3 ? styles.tabActive : ''}`.trim()}>3. Payment</span>
+        <span className={`${styles.tab} ${step === 1 ? styles.tabActive : ''}`.trim()}>1. Address & Summary</span>
+        <span className={`${styles.tab} ${step === 2 ? styles.tabActive : ''}`.trim()}>2. Payment</span>
       </div>
 
       {step === 1 && (
         <div className={styles.checkoutGrid} style={{ gridTemplateColumns: '1.2fr 1fr' }}>
+          {/* Left Column: Address Selection */}
           <section className={styles.card} style={{ padding: 14 }}>
             <h3 style={{ marginBottom: 10 }}>Delivery address</h3>
 
@@ -321,63 +321,75 @@ const Checkout = () => {
             )}
           </section>
 
+          {/* Right Column: Full Order Summary */}
           <aside className={styles.card} style={{ padding: 14 }}>
-            <h3 style={{ marginBottom: 8 }}>Order quick summary</h3>
-            <div className={styles.row}><span>Items</span><span>{activeItems.length}</span></div>
-            <div className={styles.row}><span>Total</span><span>{formatCurrency(finalTotal)}</span></div>
+            <h3 style={{ marginBottom: 12 }}>Order summary</h3>
+
+            {/* Items List */}
+            <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid #e5e7eb' }}>
+              <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 600, marginBottom: 8 }}>Items ({activeItems.length})</div>
+              {activeItems.map(({ product, quantity }: any) => (
+                <div key={product.id || product._id} className={styles.row} style={{ marginBottom: 6 }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-dark)' }}>{product.name} × {quantity}</span>
+                  <span style={{ fontSize: 13 }}>{formatCurrency(product.price * quantity)}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Price Breakdown */}
+            <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid #e5e7eb' }}>
+              <div className={styles.row} style={{ fontSize: 13, marginBottom: 6 }}>
+                <span>Subtotal</span>
+                <span>{formatCurrency(subtotal)}</span>
+              </div>
+              {discount > 0 && (
+                <div className={styles.row} style={{ fontSize: 13, marginBottom: 6, color: '#10b981' }}>
+                  <span>Discount</span>
+                  <span>-{formatCurrency(discount)}</span>
+                </div>
+              )}
+              {deliveryFee > 0 && (
+                <div className={styles.row} style={{ fontSize: 13, marginBottom: 6 }}>
+                  <span>Delivery</span>
+                  <span>{formatCurrency(deliveryFee)}</span>
+                </div>
+              )}
+              {deliveryFee === 0 && (
+                <div className={styles.row} style={{ fontSize: 13, marginBottom: 6, color: '#10b981' }}>
+                  <span>Delivery</span>
+                  <span>Free</span>
+                </div>
+              )}
+            </div>
+
+            {/* Grand Total */}
+            <div className={styles.row} style={{ color: 'var(--text-dark)', fontWeight: 800, fontSize: 16, marginBottom: 12 }}>
+              <span>Grand total</span>
+              <span>{formatCurrency(finalTotal)}</span>
+            </div>
+
             {!selectedAddressId && reduxAddresses.length > 0 && (
-              <p style={{ color: 'var(--error-color)', fontSize: 13, marginTop: 8, fontWeight: 600 }}>Please select a delivery address.</p>
+              <p style={{ color: 'var(--error-color)', fontSize: 13, marginBottom: 12, fontWeight: 600 }}>Please select a delivery address.</p>
             )}
             {!selectedAddressId && reduxAddresses.length === 0 && (
-              <p style={{ color: 'var(--text-light)', fontSize: 13, marginTop: 8 }}>Add an address to continue.</p>
+              <p style={{ color: 'var(--text-light)', fontSize: 13, marginBottom: 12 }}>Add an address to continue.</p>
             )}
+
             <button
               type="button"
               className={styles.primaryBtn}
-              style={{ marginTop: 10, width: '100%', opacity: !selectedAddressId || showAddForm ? 0.5 : 1 }}
+              style={{ width: '100%', opacity: !selectedAddressId || showAddForm ? 0.5 : 1 }}
               disabled={!selectedAddressId || showAddForm}
               onClick={() => setStep(2)}
-              data-testid="proceed-summary-btn"
+              data-testid="proceed-payment-btn"
             >
-              Continue to summary
+              Continue to Payment
             </button>
           </aside>
         </div>
       )}
 
       {step === 2 && (
-        <div className={styles.checkoutGrid} style={{ gridTemplateColumns: '1.3fr 1fr' }}>
-          <section className={styles.card} style={{ padding: 14 }}>
-            <h3 style={{ marginBottom: 10 }}>Order summary</h3>
-            {activeItems.map(({ product, quantity }: any) => (
-              <article key={product.id || product._id} className={styles.softCard} style={{ padding: 10, marginBottom: 8 }}>
-                <div className={styles.row}>
-                  <span style={{ color: 'var(--text-dark)' }}>{product.name} × {quantity}</span>
-                  <span>{formatCurrency(product.price * quantity)}</span>
-                </div>
-              </article>
-            ))}
-          </section>
-
-          <aside className={styles.card} style={{ padding: 14 }}>
-            <div className={styles.row}><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-            <div className={styles.row}><span>Discount</span><span>-{formatCurrency(discount)}</span></div>
-            <div className={styles.row}><span>Delivery</span><span>{deliveryFee === 0 ? 'Free' : formatCurrency(deliveryFee)}</span></div>
-            <hr style={{ margin: '12px 0', borderColor: 'color-mix(in srgb, var(--primary) 20%, transparent)' }} />
-            <div className={styles.row} style={{ color: 'var(--text-dark)', fontWeight: 800 }}>
-              <span>Grand total</span>
-              <span>{formatCurrency(finalTotal)}</span>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <button type="button" className={styles.ghostBtn} onClick={() => setStep(1)}>Back</button>
-              <button type="button" className={styles.primaryBtn} onClick={proceedToPayment} data-testid="proceed-payment-btn">Proceed to payment</button>
-            </div>
-          </aside>
-        </div>
-      )}
-
-      {step === 3 && (
         <div className={styles.checkoutGrid} style={{ gridTemplateColumns: '1.3fr 1fr' }}>
           <section className={styles.card} style={{ padding: 14 }}>
             <h3 style={{ marginBottom: 10 }}>Payment</h3>
@@ -421,7 +433,7 @@ const Checkout = () => {
             {paymentStatus === 'success' && <p className={styles.stockOk}>Payment successful! Redirecting to tracking...</p>}
 
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <button type="button" className={styles.ghostBtn} onClick={() => setStep(2)}>Back</button>
+              <button type="button" className={styles.ghostBtn} onClick={() => setStep(1)}>Back</button>
               <button type="button" className={styles.primaryBtn} onClick={handlePlaceOrder} data-testid="place-order-btn">Pay {formatCurrency(finalTotal)}</button>
             </div>
           </section>
@@ -439,3 +451,5 @@ const Checkout = () => {
 }
 
 export default Checkout
+
+

@@ -75,7 +75,7 @@ const Products = () => {
   }
 
   return (
-    <div className="container">
+    <div className={styles.productsContainer}>
       <h1 className={styles.pageTitle}>Our Products</h1>
 
       {error && (
@@ -104,31 +104,19 @@ const Products = () => {
         </div>
       ) : (
         <>
-          {/* Main Layout Container - Desktop: 25/75 split, Mobile: Full width */}
+          {/* Main Layout Container - Desktop: Filter sidebar + Products, Mobile: Full width */}
           <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'auto 1fr',
-              gap: '20px',
-              marginBottom: '40px',
-            }}
+            className={styles.productsLayout}
           >
             {/* Left Sidebar - Desktop Only */}
             <div
-              style={{
-                display: 'none',
-              }}
               className="desktop-filters"
             >
               <FilterSidebar categories={categories} />
             </div>
 
             {/* Right Column - Products Section */}
-            <div
-              style={{
-                flex: 1,
-              }}
-            >
+            <div>
               {/* Mobile Filter Button - Hidden on Desktop */}
               <div
                 style={{
