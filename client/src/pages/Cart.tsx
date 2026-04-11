@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAppSelector, useAppDispatch } from '../store/hooks'
 import { addItem as addItemToCart, updateQuantity, removeItem, type CartItem } from '../store/slices/cartSlice'
+import { applyCoupon, removeCoupon } from '../store/slices/couponSlice'
 import { addItem as addToWishlist, removeItem as removeFromWishlist } from '../store/slices/wishlistSlice'
 import useProducts from '../hooks/useProducts'
 import { useAuth } from '../context/AuthContext'
@@ -14,11 +15,11 @@ const Cart = () => {
   const dispatch = useAppDispatch()
   const items = useAppSelector((state) => state.cart.items)
   const wishlistItems = useAppSelector((state) => state.wishlist.items)
+  const reduxCoupon = useAppSelector((state) => state.coupon)
   const { allProducts, loadProducts } = useProducts()
   const { isLoggedIn, login } = useAuth()
   const navigate = useNavigate()
   const [couponCode, setCouponCode] = useState('')
-  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountPct: number; discountAmount: number } | null>(null)
   const [couponError, setCouponError] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
   const [isLoginOpen, setIsLoginOpen] = useState(false)
@@ -106,9 +107,9 @@ const Cart = () => {
   const subtotal = sumCartValue(cartItems)
   const originalSubtotal = sumOriginalCartValue(cartItems)
   const discount = Math.max(0, originalSubtotal - subtotal)
-  const couponDiscount = appliedCoupon ? appliedCoupon.discountAmount : 0
+  const couponDiscount = reduxCoupon.code ? reduxCoupon.discountAmount : 0
   const deliveryFee = subtotal > 2499 || subtotal === 0 ? 0 : 49
-  const total = subtotal - discount - couponDiscount + deliveryFee
+  const total = subtotal - couponDiscount + deliveryFee
 
   const handleApplyCoupon = async () => {
     const code = couponCode.trim().toUpperCase()
@@ -126,20 +127,20 @@ const Cart = () => {
 
       if (!response.success) {
         setCouponError(response.message)
-        setAppliedCoupon(null)
+        dispatch(removeCoupon())
         return
       }
 
       // Apply coupon with discount details from backend
-      setAppliedCoupon({
+      dispatch(applyCoupon({
         code: response.data?.code || code,
         discountPct: response.data?.discountValue || 0,
         discountAmount: response.data?.discountAmount || 0,
-      })
+      }))
       setCouponCode('')
     } catch (error) {
       setCouponError('Failed to apply coupon. Please try again.')
-      setAppliedCoupon(null)
+      dispatch(removeCoupon())
     } finally {
       setCouponLoading(false)
     }
@@ -277,10 +278,12 @@ const Cart = () => {
 
           <aside className={styles.card} style={{ padding: 14, height: 'fit-content' }}>
             <h3 style={{ marginBottom: 10 }}>Price summary</h3>
-            <div className={styles.row}><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-            <div className={styles.row}><span>Discount</span><span style={{ color: 'var(--success-color)' }}>-{formatCurrency(discount)}</span></div>
+            <div className={styles.row}><span>Subtotal</span><span>{formatCurrency(originalSubtotal)}</span></div>
+            {discount > 0 && (
+              <div className={styles.row}><span>Discount</span><span style={{ color: 'var(--success-color)' }}>-{formatCurrency(discount)}</span></div>
+            )}
             {couponDiscount > 0 && (
-              <div className={styles.row}><span>Coupon ({appliedCoupon?.code})</span><span style={{ color: 'var(--success-color)' }}>-{formatCurrency(couponDiscount)}</span></div>
+              <div className={styles.row}><span>Coupon ({reduxCoupon?.code})</span><span style={{ color: 'var(--success-color)' }}>-{formatCurrency(couponDiscount)}</span></div>
             )}
             <div className={styles.row}><span>Delivery fee</span><span>{deliveryFee === 0 ? <span className={styles.stockOk}>Free</span> : formatCurrency(deliveryFee)}</span></div>
             <hr className={styles.divider} />
@@ -290,10 +293,10 @@ const Cart = () => {
             </div>
 
             {/* Coupon */}
-            {appliedCoupon ? (
+            {reduxCoupon.code ? (
               <div className={styles.couponApplied}>
-                <span>🎉 {appliedCoupon.code} applied – {appliedCoupon.discountPct}% off</span>
-                <button type="button" style={{ background: 'none', border: 'none', color: 'inherit', fontWeight: 700, cursor: 'pointer' }} onClick={() => setAppliedCoupon(null)}>×</button>
+                <span>🎉 {reduxCoupon.code} applied – {reduxCoupon.discountPct}% off</span>
+                <button type="button" style={{ background: 'none', border: 'none', color: 'inherit', fontWeight: 700, cursor: 'pointer' }} onClick={() => dispatch(removeCoupon())}>×</button>
               </div>
             ) : (
               <div style={{ marginTop: 10 }}>

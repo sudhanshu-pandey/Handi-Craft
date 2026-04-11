@@ -16,10 +16,12 @@ const orderSchema = new mongoose.Schema({
   subtotal: { type: Number },
   discount: { type: Number, default: 0 },
   couponCode: { type: String },
+  couponDiscount: { type: Number, default: 0 },
   deliveryFee: { type: Number, default: 0 },
   status: { type: String, enum: ['ordered', 'packed', 'shipped', 'out_for_delivery', 'delivered', 'cancelled'], default: "ordered" },
   paymentMethod: { type: String, enum: ['upi', 'card', 'netbanking', 'cod', 'razorpay', 'stripe'], default: 'cod' },
   paymentStatus: { type: String, enum: ['pending', 'success', 'failed'], default: 'pending' },
+  paymentExpiresAt: { type: Date },
   address: {
     label: String,
     line1: String,

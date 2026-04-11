@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
+import { scheduleCleanupJob } from "./jobs/cleanupExpiredOrders.js";
 
 import authRouter from "./routes/auth.route.js";
 import cartRouter from "./routes/cart.route.js";
@@ -25,7 +26,19 @@ const app = express();
 
 // CORS Configuration
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || "https://handi-craft-frontend.onrender.com",
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      process.env.FRONTEND_URL,
+      "http://localhost:3000",
+      "https://handi-craft-frontend.onrender.com",
+    ];
+    
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -54,4 +67,8 @@ app.use("/api/pincode", pincodeRouter);
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  
+  // Schedule cleanup job to run every 2 minutes
+  // This will automatically delete expired orders
+  scheduleCleanupJob();
 });

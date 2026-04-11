@@ -5,8 +5,10 @@ import productReducer from './slices/productSlice';
 import addressReducer from './slices/addressSlice';
 import orderReducer from './slices/orderSlice';
 import filterReducer from './slices/filterSlice';
+import couponReducer from './slices/couponSlice';
 import { cartPersistenceMiddleware } from './middleware/cartPersistence';
 import { filterPersistenceMiddleware } from './middleware/filterPersistence';
+import { couponPersistenceMiddleware } from './middleware/couponPersistence';
 
 /**
  * Redux Store Configuration
@@ -20,11 +22,13 @@ const store = configureStore({
     address: addressReducer,
     orders: orderReducer,
     filters: filterReducer,
+    coupon: couponReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(
       cartPersistenceMiddleware as any,
-      filterPersistenceMiddleware as any
+      filterPersistenceMiddleware as any,
+      couponPersistenceMiddleware as any
     ),
 }) as any;
 

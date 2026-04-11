@@ -5,7 +5,7 @@ import { HTTP_STATUS } from "../config/constants.js";
 // Create new order
 const createOrder = async (req, res) => {
   try {
-    const { items, total, subtotal, discount, deliveryFee, paymentMethod, paymentStatus, estimatedDelivery, address, couponCode } = req.body;
+    const { items, total, subtotal, discount, couponDiscount, deliveryFee, paymentMethod, paymentStatus, estimatedDelivery, address, couponCode } = req.body;
     
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Items array is required' });
@@ -50,16 +50,20 @@ const createOrder = async (req, res) => {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'No valid items in order' });
     }
     
-    // Create order
+    // Create order with 10-minute payment window
+    const paymentExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    
     const order = new Order({
       user: req.user.id,
       items: orderItems,
       total,
       subtotal: subtotal || total,
       discount: discount || 0,
+      couponDiscount: couponDiscount || 0,
       deliveryFee: deliveryFee || 0,
       paymentMethod: paymentMethod || 'cod',
       paymentStatus: paymentStatus || 'pending',
+      paymentExpiresAt,
       estimatedDelivery: estimatedDelivery ? new Date(estimatedDelivery) : null,
       address: address || {},
       couponCode: couponCode || null,

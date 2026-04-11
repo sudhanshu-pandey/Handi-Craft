@@ -19,6 +19,7 @@ const About = lazy(() => import('./pages/About.tsx'))
 const Contact = lazy(() => import('./pages/Contact.tsx'))
 const Donate = lazy(() => import('./pages/Donate.tsx'))
 const Checkout = lazy(() => import('./pages/Checkout.tsx'))
+const Payment = lazy(() => import('./pages/Payment.tsx'))
 const OrderTracking = lazy(() => import('./pages/OrderTracking.tsx'))
 
 function App() {
@@ -73,6 +74,7 @@ function App() {
                 <Route path="/products/:id" element={<ProductDetails />} />
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/checkout" element={<Checkout />} />
+                <Route path="/payment/:orderId" element={<Payment />} />
                 <Route path="/order-tracking/:orderId" element={<OrderTracking />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<Contact />} />
