@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { formatCurrency } from '../utils/commerce'
 import api from '../services/api'
 import styles from './commerce.module.css'
+import './OrderTracking.css'
 
 const statusSteps = ['ordered', 'packed', 'shipped', 'out_for_delivery', 'delivered'] as const
 
@@ -35,7 +36,7 @@ interface Order {
   couponDiscount: number
   deliveryFee: number
   couponCode?: string
-  status: (typeof statusSteps)[number]
+  status: (typeof statusSteps)[number] | 'cancelled'
   paymentMethod: string
   paymentStatus: string
   estimatedDelivery: string
@@ -48,6 +49,7 @@ interface Order {
     pincode: string
     phone: string
   }
+  refundId?: string
 }
 
 const OrderTracking = () => {
@@ -56,6 +58,15 @@ const OrderTracking = () => {
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [showRefundModal, setShowRefundModal] = useState(false)
+  const [refundStatus, setRefundStatus] = useState<'pending' | 'success' | 'error'>('pending')
+  const [refundError, setRefundError] = useState<string | null>(null)
+  const [showSupportModal, setShowSupportModal] = useState(false)
+  const [supportMessage, setSupportMessage] = useState('')
+  const [submittingSupport, setSubmittingSupport] = useState(false)
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -77,6 +88,61 @@ const OrderTracking = () => {
 
     fetchOrder()
   }, [orderId, isLoggedIn])
+
+  const canCancelOrder = order && order.paymentStatus === 'success'
+  const handleCancelOrder = async () => {
+    if (!order || !canCancelOrder) return
+
+    try {
+      setCancelling(true)
+      setCancelError(null)
+      setRefundStatus('pending')
+      setRefundError(null)
+      
+      // Call backend to process cancellation and refund
+      const response = await api.request(`/orders/${order._id}/cancel-with-refund`, { method: 'POST' })
+      
+      setRefundStatus('success')
+      setOrder(response.order)
+      
+      // Close modals after success
+      setTimeout(() => {
+        setShowCancelModal(false)
+        setShowRefundModal(false)
+        setCancelError(null)
+      }, 2000)
+    } catch (err: any) {
+      setRefundStatus('error')
+      setRefundError(err.message || 'Failed to process refund')
+      setCancelError(err.message || 'Failed to cancel order and process refund')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  const handleInitiateRefund = () => {
+    setShowCancelModal(false)
+    setShowRefundModal(true)
+  }
+
+  const handleSubmitSupport = async () => {
+    if (!order || !supportMessage.trim()) return
+
+    try {
+      setSubmittingSupport(true)
+      await api.request(`/orders/${order._id}/support`, {
+        method: 'POST',
+        body: JSON.stringify({ message: supportMessage })
+      })
+      setSupportMessage('')
+      setShowSupportModal(false)
+      alert('Support request submitted successfully. We will contact you soon.')
+    } catch (err: any) {
+      alert('Failed to submit support request: ' + (err.message || 'Unknown error'))
+    } finally {
+      setSubmittingSupport(false)
+    }
+  }
 
   if (!isLoggedIn) {
     return (
@@ -129,7 +195,7 @@ const OrderTracking = () => {
 
       <h1 style={{ marginBottom: 16 }}>Order Tracking</h1>
 
-      <div className={styles.checkoutGrid} style={{ gridTemplateColumns: '1.3fr 1fr', alignItems: 'flex-start' }}>
+      <div className={styles.checkoutGrid} style={{ alignItems: 'flex-start' }}>
         {/* Left: Timeline + Delivery Info */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* Timeline Section */}
@@ -169,6 +235,119 @@ const OrderTracking = () => {
               })}
             </div>
           </section>
+
+          {/* Action Buttons */}
+          {(canCancelOrder || order?.status === 'cancelled' || true) && (
+            <section className={styles.card} style={{ padding: 16 }}>
+              <h3 style={{ 
+                marginBottom: 14, 
+                fontSize: '16px',
+                fontWeight: '700',
+                color: 'var(--text-dark)',
+                borderBottom: '2px solid #f0f0f0',
+                paddingBottom: '12px'
+              }}>
+                Order Actions
+              </h3>
+              
+              {order?.status === 'cancelled' ? (
+                // Show cancellation message
+                <div style={{
+                  backgroundColor: '#fff3cd',
+                  border: '1px solid #ffc107',
+                  borderRadius: '6px',
+                  padding: '16px',
+                  textAlign: 'center'
+                }}>
+                  <p style={{
+                    margin: '0 0 12px 0',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    color: '#856404'
+                  }}>
+                    ✓ Order has been cancelled
+                  </p>
+                  <p style={{
+                    margin: '0 0 8px 0',
+                    fontSize: '13px',
+                    color: '#856404',
+                    lineHeight: '1.6'
+                  }}>
+                    Your refund of <strong>{formatCurrency(order.total)}</strong> will be available in your account within <strong>4-5 business days</strong>.
+                  </p>
+                  <p style={{
+                    margin: '0',
+                    fontSize: '12px',
+                    color: '#856404'
+                  }}>
+                    Refund ID: <strong>{order.refundId || 'Processing'}</strong>
+                  </p>
+                </div>
+              ) : (
+                // Show cancel button
+                <div style={{ display: 'grid', gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowCancelModal(true)}
+                    disabled={!canCancelOrder || cancelling}
+                    style={{
+                      padding: '10px 16px',
+                      backgroundColor: canCancelOrder ? '#d32f2f' : '#ccc',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontWeight: 600,
+                      cursor: canCancelOrder ? 'pointer' : 'not-allowed',
+                      opacity: canCancelOrder ? 1 : 0.6,
+                      fontSize: '14px',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (canCancelOrder) {
+                        e.currentTarget.style.backgroundColor = '#b71c1c'
+                        e.currentTarget.style.boxShadow = '0 2px 8px rgba(211, 47, 47, 0.3)'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#d32f2f'
+                      e.currentTarget.style.boxShadow = ''
+                    }}
+                  >
+                    {cancelling ? '⏳ Processing...' : '✕ Cancel Order'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowSupportModal(true)}
+                    style={{
+                      padding: '10px 16px',
+                      backgroundColor: 'var(--primary)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(125, 46, 79, 0.3)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.boxShadow = ''
+                    }}
+                  >
+                    💬 Contact Support
+                  </button>
+                </div>
+              )}
+              
+              {cancelError && (
+                <p style={{ color: '#d32f2f', fontSize: 13, marginTop: 10, margin: '10px 0 0 0' }}>
+                  ⚠️ {cancelError}
+                </p>
+              )}
+            </section>
+          )}
 
           {/* Delivery Info Section */}
           <section className={styles.card} style={{ padding: 16 }}>
@@ -457,6 +636,430 @@ const OrderTracking = () => {
           </Link>
         </div>
       </div>
+
+      {/* Cancel Order Modal */}
+      {showCancelModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            backgroundColor: '#fff',
+            borderRadius: '8px',
+            padding: '24px',
+            maxWidth: '400px',
+            width: '90%',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+          }}>
+            <h2 style={{ marginTop: 0, color: 'var(--text-dark)', marginBottom: 12 }}>Cancel Order?</h2>
+            <p style={{ color: 'var(--text-light)', marginBottom: 20, lineHeight: 1.6 }}>
+              Are you sure you want to cancel this order? This action cannot be undone. If you've already made payment, it will be refunded within 5-7 business days.
+            </p>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                type="button"
+                onClick={() => setShowCancelModal(false)}
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  backgroundColor: '#f0f0f0',
+                  color: 'var(--text-dark)',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                Keep Order
+              </button>
+              <button
+                type="button"
+                onClick={handleInitiateRefund}
+                disabled={cancelling}
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  backgroundColor: '#d32f2f',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  cursor: cancelling ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  opacity: cancelling ? 0.6 : 1
+                }}
+              >
+                {cancelling ? 'Processing...' : 'Proceed to Refund'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Refund Modal */}
+      {showRefundModal && order && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            backgroundColor: '#fff',
+            borderRadius: '8px',
+            padding: '24px',
+            maxWidth: '450px',
+            width: '90%',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+          }}>
+            {refundStatus === 'pending' ? (
+              <>
+                <h2 style={{ marginTop: 0, color: 'var(--text-dark)', marginBottom: 20 }}>Refund Details</h2>
+                
+                {/* Order Summary */}
+                <div style={{
+                  backgroundColor: '#f9f9f9',
+                  padding: '16px',
+                  borderRadius: '8px',
+                  marginBottom: '20px',
+                  border: '1px solid #e0e0e0'
+                }}>
+                  <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#666', textTransform: 'uppercase', fontWeight: '600' }}>
+                    Order Amount Breakdown
+                  </p>
+                  
+                  <div style={{ display: 'grid', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                      <span style={{ color: '#666' }}>Subtotal</span>
+                      <span style={{ fontWeight: 600, color: '#333' }}>
+                        {formatCurrency(order.subtotal || order.total)}
+                      </span>
+                    </div>
+                    
+                    {order.discount > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                        <span style={{ color: '#666' }}>Product Discount</span>
+                        <span style={{ fontWeight: 600, color: '#10b981' }}>
+                          -{formatCurrency(order.discount)}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {order.couponDiscount > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                        <span style={{ color: '#666' }}>Coupon Discount</span>
+                        <span style={{ fontWeight: 600, color: '#10b981' }}>
+                          -{formatCurrency(order.couponDiscount)}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {order.deliveryFee > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                        <span style={{ color: '#666' }}>Delivery Fee</span>
+                        <span style={{ fontWeight: 600, color: '#333' }}>
+                          {formatCurrency(order.deliveryFee)}
+                        </span>
+                      </div>
+                    )}
+                    
+                    <div style={{
+                      borderTop: '1px solid #e0e0e0',
+                      paddingTop: '10px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: '14px'
+                    }}>
+                      <span style={{ color: '#333', fontWeight: 'bold' }}>Order Total Paid</span>
+                      <span style={{ color: '#d32f2f', fontWeight: 'bold', fontSize: '16px' }}>
+                        {formatCurrency(order.total)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Refund Info */}
+                <div style={{
+                  backgroundColor: '#e8f5e9',
+                  padding: '12px',
+                  borderRadius: '6px',
+                  marginBottom: '20px',
+                  border: '1px solid #10b981'
+                }}>
+                  <p style={{
+                    margin: 0,
+                    fontSize: '13px',
+                    color: '#2e7d32',
+                    lineHeight: '1.5'
+                  }}>
+                    ✓ You will receive <strong>{formatCurrency(order.total)}</strong> refund to your original payment method within 5-7 business days.
+                  </p>
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowRefundModal(false)
+                      setShowCancelModal(true)
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '10px 16px',
+                      backgroundColor: '#f0f0f0',
+                      color: 'var(--text-dark)',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    Go Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelOrder}
+                    disabled={cancelling}
+                    style={{
+                      flex: 1,
+                      padding: '10px 16px',
+                      backgroundColor: '#2e7d32',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontWeight: 600,
+                      cursor: cancelling ? 'not-allowed' : 'pointer',
+                      fontSize: '14px',
+                      opacity: cancelling ? 0.6 : 1
+                    }}
+                  >
+                    {cancelling ? '⏳ Processing...' : '✓ Confirm Refund'}
+                  </button>
+                </div>
+              </>
+            ) : refundStatus === 'success' ? (
+              <>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{
+                    fontSize: '48px',
+                    marginBottom: '12px'
+                  }}>
+                    ✓
+                  </div>
+                  <h2 style={{ marginTop: 0, color: '#2e7d32', marginBottom: 12 }}>Refund Initiated!</h2>
+                  <p style={{ color: 'var(--text-light)', marginBottom: 20, lineHeight: 1.6 }}>
+                    Your order has been cancelled and refund of <strong>{formatCurrency(order.total)}</strong> will be credited to your original payment method within 5-7 business days.
+                  </p>
+                  <p style={{ color: '#999', fontSize: '12px', marginBottom: 20 }}>
+                    Order ID: <strong>{order._id}</strong>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    backgroundColor: '#2e7d32',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  Close
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{
+                    fontSize: '48px',
+                    marginBottom: '12px'
+                  }}>
+                    ✕
+                  </div>
+                  <h2 style={{ marginTop: 0, color: '#d32f2f', marginBottom: 12 }}>Refund Failed</h2>
+                  <p style={{ color: 'var(--text-light)', marginBottom: 20, lineHeight: 1.6 }}>
+                    {refundError || 'An error occurred while processing your refund.'}
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowRefundModal(false)
+                      setRefundStatus('pending')
+                      setRefundError(null)
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '10px 16px',
+                      backgroundColor: '#f0f0f0',
+                      color: 'var(--text-dark)',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelOrder}
+                    disabled={cancelling}
+                    style={{
+                      flex: 1,
+                      padding: '10px 16px',
+                      backgroundColor: '#d32f2f',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontWeight: 600,
+                      cursor: cancelling ? 'not-allowed' : 'pointer',
+                      fontSize: '14px',
+                      opacity: cancelling ? 0.6 : 1
+                    }}
+                  >
+                    {cancelling ? 'Retrying...' : 'Retry'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Support Modal */}
+      {showSupportModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            backgroundColor: '#fff',
+            borderRadius: '8px',
+            padding: '24px',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+          }}>
+            <h2 style={{ marginTop: 0, color: 'var(--text-dark)', marginBottom: 12 }}>Contact Support</h2>
+            <p style={{ color: 'var(--text-light)', marginBottom: 16, fontSize: 13 }}>
+              Having issues with your order? Let us know what's wrong and our support team will help you out.
+            </p>
+            
+            {/* Order Info Display */}
+            <div style={{
+              backgroundColor: '#f9f9f9',
+              padding: '12px',
+              borderRadius: '6px',
+              marginBottom: '16px',
+              fontSize: '13px',
+              color: '#666',
+              borderLeft: '3px solid var(--primary)'
+            }}>
+              <p style={{ margin: '0 0 4px 0', fontWeight: 600 }}>Order {order?._id.slice(-8).toUpperCase()}</p>
+              <p style={{ margin: 0 }}>Status: {order?.status.charAt(0).toUpperCase() + order?.status.slice(1).replace('_', ' ')}</p>
+            </div>
+
+            {/* Message Input */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 600, color: 'var(--text-dark)' }}>
+                Tell us the issue:
+              </label>
+              <textarea
+                value={supportMessage}
+                onChange={(e) => setSupportMessage(e.target.value)}
+                placeholder="Describe the issue you're facing with your order..."
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #ddd',
+                  borderRadius: '6px',
+                  fontFamily: 'inherit',
+                  fontSize: '13px',
+                  resize: 'vertical',
+                  minHeight: '100px',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSupportModal(false)
+                  setSupportMessage('')
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  backgroundColor: '#f0f0f0',
+                  color: 'var(--text-dark)',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitSupport}
+                disabled={!supportMessage.trim() || submittingSupport}
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  backgroundColor: 'var(--primary)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  cursor: !supportMessage.trim() || submittingSupport ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  opacity: !supportMessage.trim() || submittingSupport ? 0.6 : 1
+                }}
+              >
+                {submittingSupport ? 'Sending...' : 'Submit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

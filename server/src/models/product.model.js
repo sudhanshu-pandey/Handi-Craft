@@ -16,6 +16,12 @@ const productSchema = new mongoose.Schema({ // Numeric ID for frontend compatibi
     region: { type: String },
     craftType: { type: String }
   },
+  specifications: {
+    dimension: { type: String },
+    weight: { type: String },
+    category: { type: String },
+    countryOfOrigin: { type: String },
+  },
   tags: [{ type: String }],
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }

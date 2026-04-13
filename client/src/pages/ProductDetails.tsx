@@ -14,6 +14,7 @@ import {
   getStockCount,
 } from '../utils/commerce'
 import styles from './commerce.module.css'
+import './ProductDetails.css'
 
 type TabKey = 'description' | 'specifications' | 'reviews' | 'faq'
 type PendingAction = 'add' | 'buy' | null
@@ -300,6 +301,11 @@ const ProductDetails = () => {
     if (!product) {
       return
     }
+    // Check if out of stock first
+    if (stockCount <= 0) {
+      setToast('❌ This item is out of stock')
+      return
+    }
     if (!isLoggedIn) {
       setPendingAction('add')
       setIsLoginOpen(true)
@@ -340,6 +346,11 @@ const ProductDetails = () => {
 
   const handleBuyNow = () => {
     if (!product) {
+      return
+    }
+    // Check if out of stock first
+    if (stockCount <= 0) {
+      setToast('❌ This item is out of stock')
       return
     }
     if (!isLoggedIn) {
@@ -546,8 +557,8 @@ const ProductDetails = () => {
                 {/* Stock Status - Prominent Display */}
                 <div style={{
                   padding: '12px 16px',
-                  backgroundColor: stockCount <= 3 ? '#ffebee' : '#e8f5e9',
-                  border: `2px solid ${stockCount <= 3 ? '#ef5350' : '#66bb6a'}`,
+                  backgroundColor: stockCount === 0 ? '#ffcdd2' : stockCount <= 3 ? '#ffebee' : '#e8f5e9',
+                  border: `2px solid ${stockCount === 0 ? '#d32f2f' : stockCount <= 3 ? '#ef5350' : '#66bb6a'}`,
                   borderRadius: '6px',
                   marginBottom: '16px',
                   textAlign: 'center'
@@ -556,11 +567,21 @@ const ProductDetails = () => {
                     margin: 0,
                     fontSize: '16px',
                     fontWeight: '700',
-                    color: stockCount <= 3 ? '#c62828' : '#2e7d32'
+                    color: stockCount === 0 ? '#b71c1c' : stockCount <= 3 ? '#c62828' : '#2e7d32'
                   }}>
-                    {stockCount <= 3 ? `⚠️ Only ${stockCount} left in stock!` : `✓ ${stockCount} in stock`}
+                    {stockCount === 0 ? '📦 OUT OF STOCK' : stockCount <= 3 ? `⚠️ Only ${stockCount} left in stock!` : `✓ ${stockCount} in stock`}
                   </p>
-                  {stockCount <= 3 && (
+                  {stockCount === 0 && (
+                    <p style={{
+                      margin: '4px 0 0 0',
+                      fontSize: '12px',
+                      color: '#b71c1c',
+                      fontWeight: '500'
+                    }}>
+                      Currently unavailable. Check back later
+                    </p>
+                  )}
+                  {stockCount > 0 && stockCount <= 3 && (
                     <p style={{
                       margin: '4px 0 0 0',
                       fontSize: '12px',
@@ -654,11 +675,25 @@ const ProductDetails = () => {
                 </div>
 
                 <div className={styles.actions}>
-                  <button type="button" className={styles.actionBtn} onClick={handleAddToCart} data-testid="add-to-cart-btn">
-                    Add to Cart
+                  <button 
+                    type="button" 
+                    className={styles.actionBtn} 
+                    onClick={handleAddToCart} 
+                    disabled={stockCount === 0}
+                    style={stockCount === 0 ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+                    data-testid="add-to-cart-btn"
+                  >
+                    {stockCount === 0 ? '📦 Out of Stock' : 'Add to Cart'}
                   </button>
-                  <button type="button" className={styles.secondaryBtn} onClick={handleBuyNow} data-testid="buy-now-btn">
-                    Buy Now
+                  <button 
+                    type="button" 
+                    className={styles.secondaryBtn} 
+                    onClick={handleBuyNow}
+                    disabled={stockCount === 0}
+                    style={stockCount === 0 ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+                    data-testid="buy-now-btn"
+                  >
+                    {stockCount === 0 ? 'Out of Stock' : 'Buy Now'}
                   </button>
                   <button
                     type="button"
@@ -719,15 +754,48 @@ const ProductDetails = () => {
 
               {activeTab === 'specifications' && (
                 <>
-                  {['Dimension: 28cm x 14cm', 'Weight: 1.2kg', 'Category: Handicraft décor', 'Country of origin: India'].map((entry) => (
-                    <div className={styles.expand} key={entry}>
-                      <button type="button" className={styles.expandHead}>
-                        <span>{entry.split(':')[0]}</span>
-                        <span>▾</span>
-                      </button>
-                      <div className={styles.expandBody}>{entry.split(':')[1]}</div>
-                    </div>
-                  ))}
+                  {product?.specifications ? (
+                    <>
+                      {product.specifications.dimension && (
+                        <div className={styles.expand}>
+                          <button type="button" className={styles.expandHead}>
+                            <span>Dimension</span>
+                            <span>▾</span>
+                          </button>
+                          <div className={styles.expandBody}>{product.specifications.dimension}</div>
+                        </div>
+                      )}
+                      {product.specifications.weight && (
+                        <div className={styles.expand}>
+                          <button type="button" className={styles.expandHead}>
+                            <span>Weight</span>
+                            <span>▾</span>
+                          </button>
+                          <div className={styles.expandBody}>{product.specifications.weight}</div>
+                        </div>
+                      )}
+                      {product.specifications.category && (
+                        <div className={styles.expand}>
+                          <button type="button" className={styles.expandHead}>
+                            <span>Category</span>
+                            <span>▾</span>
+                          </button>
+                          <div className={styles.expandBody}>{product.specifications.category}</div>
+                        </div>
+                      )}
+                      {product.specifications.countryOfOrigin && (
+                        <div className={styles.expand}>
+                          <button type="button" className={styles.expandHead}>
+                            <span>Country of origin</span>
+                            <span>▾</span>
+                          </button>
+                          <div className={styles.expandBody}>{product.specifications.countryOfOrigin}</div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p>No specifications available for this product.</p>
+                  )}
                 </>
               )}
 
@@ -800,27 +868,7 @@ const ProductDetails = () => {
                 </>
               )}
             </div>
-          </section>
-
-          {[
-            { title: 'Customers also bought', list: recommendations.alsoBought },
-            { title: 'Trending products', list: recommendations.trending },
-            { title: 'Recently viewed', list: recommendations.recently },
-          ].map((section) => (
-            <section key={section.title} style={{ marginTop: 18 }}>
-              <h2 style={{ marginBottom: 10 }}>{section.title}</h2>
-              <div className={styles.recoGrid}>
-                {section.list.map((item: any) => (
-                  <article className={styles.smallCard} key={item.id}>
-                    <img src={item.image} alt={item.name} loading="lazy" />
-                    <strong style={{ color: 'var(--text-dark)' }}>{item.name}</strong>
-                    <p>{formatCurrency(item.price)}</p>
-                    <Link to={`/products/${item.id}`} className={styles.secondaryBtn}>View Product</Link>
-                  </article>
-                ))}
-              </div>
-            </section>
-          ))}
+          </section>       
 
           <div className={styles.stickyBuy}>
             <div>

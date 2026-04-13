@@ -362,6 +362,12 @@
   grid-template-columns: 1.3fr 1fr;
 }
 
+@media (max-width: 1024px) {
+  .checkoutGrid {
+    grid-template-columns: 1.1fr 1fr;
+  }
+}
+
 @media (max-width: 860px) {
   .checkoutGrid {
     grid-template-columns: 1fr;

@@ -9,6 +9,12 @@ const orderItemSchema = new mongoose.Schema({
   quantity: { type: Number, required: true },
 });
 
+const supportTicketSchema = new mongoose.Schema({
+  message: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+  resolved: { type: Boolean, default: false }
+});
+
 const orderSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   items: [orderItemSchema],
@@ -21,6 +27,8 @@ const orderSchema = new mongoose.Schema({
   status: { type: String, enum: ['ordered', 'packed', 'shipped', 'out_for_delivery', 'delivered', 'cancelled'], default: "ordered" },
   paymentMethod: { type: String, enum: ['upi', 'card', 'netbanking', 'cod', 'razorpay', 'stripe'], default: 'cod' },
   paymentStatus: { type: String, enum: ['pending', 'success', 'failed'], default: 'pending' },
+  paymentId: { type: String }, // For Razorpay
+  paymentIntentId: { type: String }, // For Stripe
   paymentExpiresAt: { type: Date },
   address: {
     label: String,
@@ -34,6 +42,13 @@ const orderSchema = new mongoose.Schema({
     phone: String
   },
   estimatedDelivery: { type: Date },
+  // Refund fields
+  refundStatus: { type: String, enum: ['pending', 'initiated', 'completed', 'failed'], default: 'pending' },
+  refundAmount: { type: Number },
+  refundId: { type: String },
+  refundInitiatedAt: { type: Date },
+  refundCompletedAt: { type: Date },
+  supportTickets: [supportTicketSchema],
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

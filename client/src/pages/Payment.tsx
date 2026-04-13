@@ -9,6 +9,7 @@ import api from '../services/api';
 import { clearCart } from '../store/slices/cartSlice';
 import { clearCoupon } from '../store/slices/couponSlice';
 import styles from './Payment.module.css';
+import './Payment.css';
 
 const Payment = () => {
   const navigate = useNavigate();

@@ -13,6 +13,7 @@ import {
 } from '../store/slices/filterSlice'
 import { applyFiltersAndSort, getUniqueCategoriesFromProducts } from '../utils/filterUtils'
 import styles from './pages.module.css'
+import './Products.css'
 
 const Products = () => {
   const dispatch = useAppDispatch()
@@ -79,84 +80,35 @@ const Products = () => {
       <h1 className={styles.pageTitle}>Our Products</h1>
 
       {error && (
-        <div
-          style={{
-            padding: '20px',
-            color: '#d32f2f',
-            textAlign: 'center',
-            marginBottom: '20px',
-          }}
-        >
+        <div className="errorBox">
           ❌ Failed to load products: {error}
         </div>
       )}
 
       {loading ? (
-        <div
-          style={{
-            padding: '60px',
-            textAlign: 'center',
-            color: '#666',
-            fontSize: '16px',
-          }}
-        >
+        <div className="loadingBox">
           ⏳ Loading products...
         </div>
       ) : (
         <>
           {/* Main Layout Container - Desktop: Filter sidebar + Products, Mobile: Full width */}
-          <div
-            className={styles.productsLayout}
-          >
+          <div className={styles.productsLayout}>
             {/* Left Sidebar - Desktop Only */}
-            <div
-              className="desktop-filters"
-            >
+            <div className="desktopFilters">
               <FilterSidebar categories={categories} />
             </div>
 
             {/* Right Column - Products Section */}
             <div>
               {/* Mobile Filter Button - Hidden on Desktop */}
-              <div
-                style={{
-                  display: 'none',
-                  marginBottom: '20px',
-                }}
-                className="mobile-filters-button"
-              >
+              <div className="mobileFiltersButton">
                 <button
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '10px 16px',
-                    backgroundColor: hasActiveFilters ? '#ff6b35' : '#f5f5f5',
-                    color: hasActiveFilters ? '#fff' : '#333',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                  } as React.CSSProperties}
+                  className="filterButton"
                   onClick={() => dispatch(openFilterModal())}
                 >
                   <span>🔍 Filters</span>
-                  {activeFilterCount > 0 && (
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: '24px',
-                        height: '24px',
-                        borderRadius: '50%',
-                        backgroundColor: 'rgba(255, 255, 255, 0.3)',
-                        fontSize: '12px',
-                        fontWeight: 'bold',
-                      }}
-                    >
+                  {hasActiveFilters && (
+                    <span className="filterCountBadge">
                       {activeFilterCount}
                     </span>
                   )}
@@ -168,18 +120,12 @@ const Products = () => {
 
               {/* Products Grid or No Results */}
               {filteredProducts.length === 0 ? (
-                <div
-                  style={{
-                    padding: '60px 20px',
-                    textAlign: 'center',
-                    color: '#999',
-                  }}
-                >
-                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
-                  <h3 style={{ fontSize: '20px', marginBottom: '8px', color: '#666' }}>
+                <div className="noResultsContainer">
+                  <div className="noResultsIcon">🔍</div>
+                  <h3 className="noResultsTitle">
                     No Products Found
                   </h3>
-                  <p style={{ marginBottom: '20px', color: '#999' }}>
+                  <p className="noResultsDescription">
                     Try adjusting your filters or sorting options
                   </p>
                 </div>
@@ -208,61 +154,22 @@ const Products = () => {
 
                   {/* Pagination Controls */}
                   {totalPages > 1 && (
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        gap: '8px',
-                        marginTop: '40px',
-                        marginBottom: '40px',
-                        flexWrap: 'wrap',
-                      }}
-                    >
+                    <div className="paginationContainer">
                       <button
                         onClick={handlePrevPage}
                         disabled={currentPage === 1}
-                        style={{
-                          padding: '8px 12px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px',
-                          backgroundColor: currentPage === 1 ? '#f5f5f5' : '#fff',
-                          cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                          color: currentPage === 1 ? '#999' : '#333',
-                          fontSize: '14px',
-                          transition: 'all 0.2s',
-                        } as React.CSSProperties}
+                        className={`paginationButton ${currentPage === 1 ? 'disabled' : ''}`}
                       >
                         ← Previous
                       </button>
 
-                      <div
-                        style={{
-                          display: 'flex',
-                          gap: '4px',
-                          flexWrap: 'wrap',
-                          justifyContent: 'center',
-                        }}
-                      >
+                      <div className="paginationNumbers">
                         {Array.from({ length: totalPages }, (_, i) => i + 1).map(
                           (pageNumber) => (
                             <button
                               key={pageNumber}
                               onClick={() => handlePageClick(pageNumber)}
-                              style={{
-                                padding: '8px 12px',
-                                border: '1px solid #ddd',
-                                borderRadius: '4px',
-                                backgroundColor:
-                                  currentPage === pageNumber ? '#f97316' : '#fff',
-                                color:
-                                  currentPage === pageNumber ? '#fff' : '#333',
-                                cursor: 'pointer',
-                                fontSize: '14px',
-                                fontWeight:
-                                  currentPage === pageNumber ? 'bold' : 'normal',
-                                transition: 'all 0.2s',
-                              } as React.CSSProperties}
+                              className={`paginationButton ${currentPage === pageNumber ? 'active' : ''}`}
                             >
                               {pageNumber}
                             </button>
@@ -273,35 +180,14 @@ const Products = () => {
                       <button
                         onClick={handleNextPage}
                         disabled={currentPage === totalPages}
-                        style={{
-                          padding: '8px 12px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px',
-                          backgroundColor:
-                            currentPage === totalPages ? '#f5f5f5' : '#fff',
-                          cursor:
-                            currentPage === totalPages
-                              ? 'not-allowed'
-                              : 'pointer',
-                          color:
-                            currentPage === totalPages ? '#999' : '#333',
-                          fontSize: '14px',
-                          transition: 'all 0.2s',
-                        } as React.CSSProperties}
+                        className={`paginationButton ${currentPage === totalPages ? 'disabled' : ''}`}
                       >
                         Next →
                       </button>
                     </div>
                   )}
 
-                  <p
-                    style={{
-                      textAlign: 'center',
-                      color: '#666',
-                      marginBottom: '20px',
-                      fontSize: '14px',
-                    }}
-                  >
+                  <p className="paginationInfo">
                     Showing {indexOfFirstProduct + 1} to{' '}
                     {Math.min(indexOfLastProduct, filteredProducts.length)} of{' '}
                     {filteredProducts.length} products
@@ -310,33 +196,6 @@ const Products = () => {
               )}
             </div>
           </div>
-
-          {/* CSS Media Queries for Responsive Layout */}
-          <style>{`
-            /* Desktop Layout (> 768px) - Show sidebar, hide mobile button */
-            @media (min-width: 769px) {
-              .desktop-filters {
-                display: block !important;
-                width: 25%;
-                min-width: 300px;
-              }
-              
-              .mobile-filters-button {
-                display: none !important;
-              }
-            }
-            
-            /* Mobile Layout (< 768px) - Hide sidebar, show mobile button */
-            @media (max-width: 768px) {
-              .desktop-filters {
-                display: none !important;
-              }
-              
-              .mobile-filters-button {
-                display: block !important;
-              }
-            }
-          `}</style>
         </>
       )}
 

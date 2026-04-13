@@ -6,6 +6,7 @@ import ProductCard from '../components/ProductCard/ProductCard'
 import useProducts from '../hooks/useProducts'
 import { categories as allCategories } from '../data/products'
 import styles from './pages.module.css'
+import './Home.css'
 
 interface Testimonial {
   id: number

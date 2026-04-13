@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth, Address } from '../../context/AuthContext'
 import { useAppDispatch, useAppSelector } from '../../store/hooks'
 import { addItem, removeItem as removeFromCart } from '../../store/slices/cartSlice'
@@ -7,9 +8,11 @@ import { addNewAddress, updateAddressAsync, deleteAddressAsync, setDefaultAddres
 import useProducts from '../../hooks/useProducts'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import useAddressValidation from '../../hooks/useAddressValidation'
+import { getStockCount } from '../../utils/commerce'
 import api from '../../services/api'
 import styles from './ProfileModal.module.css'
 import { fetchOrders } from '../../store/slices/orderSlice'
+import { useToast } from '../../context/ToastContext'
 
 type Tab = 'profile' | 'addresses' | 'orders' | 'wishlist'
 
@@ -17,6 +20,7 @@ type ProfileModalProps = {
   isOpen: boolean
   onClose: () => void
 }
+const { showToast } = useToast()
 
 const AVATAR_INITIALS = (name: string) => {
   const parts = name.trim().split(' ')
@@ -405,14 +409,6 @@ const ProfileTab = ({ profile, wishlistCount, orders }: { profile: NonNullable<R
         <div className={styles.statCard}>
           <span className={styles.statNum}>₹{orders.reduce((total, order) => total + (order.total || 0), 0).toLocaleString('en-IN')}</span>
           <span className={styles.statLabel}>Total Spent</span>
-        </div>
-      </div>
-
-      <div className={styles.memberBadge}>
-        <span>🏅</span>
-        <div>
-          <strong>Silver Member</strong>
-          <p>Spend ₹4,053 more to reach Gold</p>
         </div>
       </div>
     </div>
@@ -955,9 +951,13 @@ const AddressesTab = ({ addresses }: { addresses: Address[] }) => {
 }
 
 const OrdersTab = () => {
+  const navigate = useNavigate()
   const orders = useAppSelector((state) => state.orders.orders)
   const loading = useAppSelector((state) => state.orders.loading)
   const error = useAppSelector((state) => state.orders.error)
+
+  // Filter only orders with successful payment
+  const successfulOrders = orders.filter((order: any) => order.paymentStatus === 'success')
 
   if (loading) {
     return (
@@ -977,11 +977,11 @@ const OrdersTab = () => {
     )
   }
 
-  if (orders.length === 0) {
+  if (successfulOrders.length === 0) {
     return (
       <div className={styles.section}>
         <h3 className={styles.sectionTitle}>Recent Orders</h3>
-        <p style={{ textAlign: 'center', padding: '1rem', color: '#999' }}>No orders yet</p>
+        <p style={{ textAlign: 'center', padding: '1rem', color: '#999' }}>No completed orders yet</p>
       </div>
     )
   }
@@ -989,12 +989,29 @@ const OrdersTab = () => {
   const formatCurrency = (value: number) => `₹${value.toLocaleString('en-IN')}`
   const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 
+  const handleOrderClick = (orderId: string) => {
+    navigate(`/order-tracking/${orderId}`)
+  }
+
   return (
     <div className={styles.section}>
       <h3 className={styles.sectionTitle}>Recent Orders</h3>
       <div className={styles.orderList}>
-        {orders.map((order: any) => (
-          <div key={order._id} className={styles.orderCard}>
+        {successfulOrders.map((order: any) => (
+          <div 
+            key={order._id} 
+            className={styles.orderCard}
+            onClick={() => handleOrderClick(order._id)}
+            style={{ cursor: 'pointer', transition: 'all 0.3s ease' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)'
+              e.currentTarget.style.transform = 'translateY(-2px)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = ''
+              e.currentTarget.style.transform = ''
+            }}
+          >
             <div className={styles.orderTop}>
               <span className={styles.orderId}>{order._id.slice(-8).toUpperCase()}</span>
               <span className={`${styles.orderStatus} ${styles[`status_${getStatusColor(order.status)}`]}`}>
@@ -1021,8 +1038,8 @@ const OrdersTab = () => {
               <span className={styles.orderDate}>📅 {formatDate(order.createdAt)}</span>
               <span className={styles.orderAmount}>{formatCurrency(order.total)}</span>
             </div>
-            <div className={styles.orderActions}>
-              <button type="button" className={styles.addrBtn} onClick={() => window.location.href = `/order-tracking/${order._id}`}>Track</button>
+            <div className={styles.orderActions} onClick={(e) => e.stopPropagation()}>
+              <button type="button" className={styles.addrBtn} onClick={() => handleOrderClick(order._id)}>Track</button>
               <button type="button" className={styles.addrBtn}>Invoice</button>
             </div>
           </div>
@@ -1086,6 +1103,14 @@ const WishlistTab = ({ onClose }: { onClose: () => void }) => {
                   type="button" 
                   className={styles.wishCartBtn}
                   onClick={() => {
+                    // Check stock before adding to cart
+                    const stockCount = product.stock !== undefined ? product.stock : getStockCount(productId);
+                    
+                    if (stockCount <= 0) {
+                      showToast('❌ This item is out of stock', 'error');
+                      return;
+                    }
+                    
                     // Add to active cart (not as savedForLater) with product details
                     dispatch(addItem({ 
                       productId, 
@@ -1097,6 +1122,7 @@ const WishlistTab = ({ onClose }: { onClose: () => void }) => {
                     // Remove from wishlist
                     dispatch(removeFromWishlist(productId));
                     // Show success and close modal
+                    showToast('✓ Added to cart');
                     setTimeout(() => onClose(), 500);
                   }}
                 >

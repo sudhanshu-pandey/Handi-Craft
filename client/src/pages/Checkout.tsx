@@ -9,6 +9,7 @@ import AddressForm from '../components/AddressForm/AddressForm'
 import { formatCurrency, sumCartValue, sumOriginalCartValue } from '../utils/commerce'
 import api from '../services/api'
 import styles from './commerce.module.css'
+import './Checkout.css'
 
 const Checkout = () => {
   const navigate = useNavigate()
@@ -190,7 +191,7 @@ const Checkout = () => {
   }
 
   return (
-    <div className={`container ${styles.page}`} data-testid="checkout-page">
+    <div className={`container ${styles.page}`} style={{ paddingBottom: '0px' }} data-testid="checkout-page">
       <h1 style={{ marginBottom: 16 }}>Checkout</h1>
 
       <div className={styles.tabs}>
@@ -198,7 +199,7 @@ const Checkout = () => {
         <span className={`${styles.tab}`.trim()}>2. Payment (Next)</span>
       </div>
 
-      <div className={styles.checkoutGrid} style={{ gridTemplateColumns: '1.2fr 1fr' }}>
+      <div className={styles.checkoutGrid}>
         {/* Left Column: Address Selection */}
         <section className={styles.card} style={{ padding: 14 }}>
           <h3 style={{ marginBottom: 10 }}>Delivery address</h3>
