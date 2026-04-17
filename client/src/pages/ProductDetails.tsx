@@ -68,7 +68,7 @@ const ProductDetails = () => {
   const dispatch = useAppDispatch()
   const cartItems = useAppSelector((state) => state.cart.items)
   const wishlistItems = useAppSelector((state) => state.wishlist.items)
-  const { loadProductById, getProductById, getAllProducts } = useProducts()
+  const { loadProductById, getProductById } = useProducts()
   
   // Handle both numeric IDs and MongoDB ObjectId strings
   const productId = id || ''
