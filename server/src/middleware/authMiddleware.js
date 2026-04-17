@@ -20,8 +20,14 @@ const authMiddleware = async (req, res, next) => {
     const decoded = jwt.verify(token, JWT_CONFIG.SECRET);
     req.user = await User.findById(decoded.id);
 
+    if (!req.user) {
+      console.error("User not found for ID:", decoded.id);
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: "User not found" });
+    }
+
     next();
   } catch (error) {
+    console.error("Auth middleware error:", error.message);
     res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: AUTH_MESSAGES.INVALID_TOKEN });
   }
 };

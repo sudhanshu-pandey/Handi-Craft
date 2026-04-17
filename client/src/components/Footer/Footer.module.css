@@ -126,6 +126,25 @@
   padding-left: 4px;
 }
 
+/* Category Button Styling */
+.column ul li button {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  transition: all 0.3s ease;
+  display: inline-block;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
+.column ul li button:hover {
+  color: var(--secondary-color);
+  padding-left: 4px;
+}
+
 /* Social Links */
 .socialLinks {
   display: flex;

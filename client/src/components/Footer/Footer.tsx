@@ -1,8 +1,13 @@
 import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAppDispatch } from '../../store/hooks'
+import { setCategories } from '../../store/slices/filterSlice'
 import styles from './Footer.module.css'
 
 const Footer = () => {
   const currentYear = new Date().getFullYear()
+  const navigate = useNavigate()
+  const dispatch = useAppDispatch()
   const [email, setEmail] = useState('')
   const [subscribed, setSubscribed] = useState(false)
 
@@ -13,6 +18,11 @@ const Footer = () => {
       setEmail('')
       setTimeout(() => setSubscribed(false), 3000)
     }
+  }
+
+  const handleCategoryClick = (categoryName: string) => {
+    dispatch(setCategories([categoryName]))
+    navigate('/products')
   }
 
   return (
@@ -55,11 +65,11 @@ const Footer = () => {
         <div className={styles.column}>
           <h4>Shop</h4>
           <ul>
-            <li><a href="/products">All Products</a></li>
-            <li><a href="/category/brass-handicrafts">Brass Handicrafts</a></li>
-            <li><a href="/category/wooden-handicrafts">Wooden Handicrafts</a></li>
-            <li><a href="/category/marble-handicrafts">Marble Handicrafts</a></li>
-            <li><a href="/category/table-lamps">Table Lamps</a></li>
+            <li><Link to="/products">All Products</Link></li>
+            <li><button onClick={() => handleCategoryClick('Brass Handicrafts')}>Brass Handicrafts</button></li>
+            <li><button onClick={() => handleCategoryClick('Wooden Handicrafts')}>Wooden Handicrafts</button></li>
+            <li><button onClick={() => handleCategoryClick('Marble Handicrafts')}>Marble Handicrafts</button></li>
+            <li><button onClick={() => handleCategoryClick('Table Lamps')}>Table Lamps</button></li>
           </ul>
         </div>
 
@@ -67,7 +77,7 @@ const Footer = () => {
         <div className={styles.column}>
           <h4>Support</h4>
           <ul>
-            <li><a href="/">Contact Us</a></li>
+            <li><Link to="/contact">Contact Us</Link></li>
             <li><a href="/">Shipping Info</a></li>
             <li><a href="/">Returns & Exchange</a></li>
             <li><a href="/">FAQ</a></li>
@@ -79,7 +89,7 @@ const Footer = () => {
         <div className={styles.column}>
           <h4>Company</h4>
           <ul>
-            <li><a href="/">About Us</a></li>
+            <li><Link to="/about">About Us</Link></li>
             <li><a href="/">Privacy Policy</a></li>
             <li><a href="/">Terms & Conditions</a></li>
             <li><a href="/">Shipping Policy</a></li>

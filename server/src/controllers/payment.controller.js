@@ -4,6 +4,21 @@ import Coupon from "../models/coupon.model.js";
 import Product from "../models/product.model.js";
 import User from "../models/user.model.js";
 import { HTTP_STATUS, PAYMENT_MESSAGES } from "../config/constants.js";
+import Razorpay from "razorpay";
+import crypto from "crypto";
+
+// Initialize Razorpay instance
+const getRazorpayInstance = () => {
+  try {
+    return new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+  } catch (error) {
+    console.error("Failed to initialize Razorpay:", error);
+    throw error;
+  }
+};
 
 // Validate coupon code
 const validateCoupon = async (req, res) => {
@@ -115,7 +130,9 @@ const processPayment = async (req, res) => {
       }
     }
     
-    // Create order
+    // Create order with 10-minute payment window
+    const paymentExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    
     const order = new Order({
       user: req.user.id,
       items: orderItems,
@@ -124,7 +141,8 @@ const processPayment = async (req, res) => {
       total,
       couponCode,
       paymentMethod,
-      paymentStatus: paymentStatus || 'pending',
+      paymentStatus: 'pending',
+      paymentExpiresAt,
       address: {
         label: address.label,
         line1: address.line1,
@@ -133,8 +151,8 @@ const processPayment = async (req, res) => {
         state: address.state,
         pincode: address.pincode,
         landmark: address.landmark,
-        fullName: user.name || 'Customer',
-        phone: user.phone
+        fullName: address.name || user.name || 'Customer',
+        phone: address.phone || user.phone
       },
       estimatedDelivery: estimatedDelivery || new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
     });
@@ -232,9 +250,170 @@ const verifyPayment = async (req, res) => {
   }
 };
 
+// Create Razorpay Order
+const createRazorpayOrder = async (req, res) => {
+  try {
+    const { amount, orderId, currency = "INR" } = req.body;
+    
+    if (!amount || !orderId) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Amount and Order ID are required" });
+    }
+
+    if (!req.user || !req.user.id) {
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: "User not authenticated" });
+    }
+
+    // Check if Razorpay credentials are set
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ 
+        message: "Payment gateway not configured. Please contact support." 
+      });
+    }
+    
+    // Verify order exists and belongs to user
+    const order = await Order.findById(orderId);
+    
+    if (!order) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Order not found" });
+    }
+    
+    // Compare user IDs properly (both as strings)
+    if (order.user.toString() !== req.user.id.toString()) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({ message: "Unauthorized - Order does not belong to you" });
+    }
+    
+    // Validate amount matches order total
+    if (Math.round(amount * 100) / 100 !== order.total) {
+      console.warn("⚠️  Amount mismatch - Order total:", order.total, "Requested amount:", amount);
+      // Still proceed but log warning
+    }
+    
+    const options = {
+      amount: Math.round(amount * 100), // Convert to paise
+      currency,
+      receipt: `receipt_${orderId}`,
+      notes: {
+        orderId: orderId.toString(),
+        userId: req.user.id.toString(),
+      },
+    };
+    
+    const razorpayInstance = getRazorpayInstance();
+    const razorpayOrder = await razorpayInstance.orders.create(options);
+
+    // Save Razorpay order ID to Payment document
+    let payment = await Payment.findOne({ order: orderId, paymentMethod: "razorpay" });
+    
+    try {
+      if (!payment) {
+        payment = new Payment({
+          order: orderId,
+          user: req.user.id,
+          amount,
+          paymentMethod: "razorpay",
+          status: "pending",
+        });
+      }
+      
+      payment.razorpayOrderId = razorpayOrder.id;
+      payment.status = "pending";
+      await payment.save();
+    } catch (dbError) {
+      // If duplicate key error, it's likely an old index issue. Try updating existing record
+      if (dbError.code === 11000) {
+        console.warn("⚠️  Duplicate key error, attempting to update existing payment record");
+        try {
+          // Try to update any existing payment for this order
+          const updated = await Payment.findOneAndUpdate(
+            { order: orderId, paymentMethod: "razorpay" },
+            { razorpayOrderId: razorpayOrder.id, status: "pending" },
+            { new: true }
+          );
+          if (updated) {
+            payment = updated;
+          } else {
+            throw dbError;
+          }
+        } catch (updateError) {
+          console.error("❌ Failed to update payment record:", updateError.message);
+          throw dbError;
+        }
+      } else {
+        throw dbError;
+      }
+    }
+    
+    res.status(HTTP_STATUS.CREATED).json({
+      message: "Razorpay order created successfully",
+      razorpayOrder: {
+        id: razorpayOrder.id,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+        receipt: razorpayOrder.receipt,
+      },
+      keyId: process.env.RAZORPAY_KEY_ID,
+    });
+  } catch (err) {
+    console.error("Error creating Razorpay order:", err.message);
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ 
+      message: "Failed to create payment order", 
+      error: err.message,
+      details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+  }
+};
+
+// Verify Razorpay Payment
+const verifyRazorpayPayment = async (req, res) => {
+  try {
+    const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = req.body;
+    
+    if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Missing payment details" });
+    }
+    
+    // Verify signature
+    const signatureBody = `${razorpay_order_id}|${razorpay_payment_id}`;
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(signatureBody)
+      .digest("hex");
+    
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Payment verification failed" });
+    }
+    
+    // Find payment and update
+    const payment = await Payment.findOne({ razorpayOrderId: razorpay_order_id });
+    if (!payment) return res.status(HTTP_STATUS.NOT_FOUND).json({ message: "Payment not found" });
+    
+    payment.razorpayPaymentId = razorpay_payment_id;
+    payment.status = "success";
+    await payment.save();
+    
+    // Update order status
+    await Order.findByIdAndUpdate(
+      payment.order,
+      { paymentStatus: "success", status: "confirmed" }
+    );
+    
+    res.json({
+      message: "Payment verified successfully",
+      payment: {
+        id: payment._id,
+        status: payment.status,
+      },
+    });
+  } catch (err) {
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ message: "Server error", error: err.message });
+  }
+};
+
 export default {
   validateCoupon,
   processPayment,
   initializePayment,
-  verifyPayment
+  verifyPayment,
+  createRazorpayOrder,
+  verifyRazorpayPayment,
 };

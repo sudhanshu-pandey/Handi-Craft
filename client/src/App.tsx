@@ -10,6 +10,7 @@ import TopHeader from './components/TopHeader/TopHeader.tsx'
 import Navbar from './components/Navbar/Navbar.tsx'
 import Header from './components/Header/Header.tsx'
 import Footer from './components/Footer/Footer.tsx'
+import ScrollToTop from './components/ScrollToTop/ScrollToTop.tsx'
 
 const Home = lazy(() => import('./pages/Home.tsx'))
 const Products = lazy(() => import('./pages/Products.tsx'))
@@ -19,6 +20,7 @@ const About = lazy(() => import('./pages/About.tsx'))
 const Contact = lazy(() => import('./pages/Contact.tsx'))
 const Donate = lazy(() => import('./pages/Donate.tsx'))
 const Checkout = lazy(() => import('./pages/Checkout.tsx'))
+const Payment = lazy(() => import('./pages/Payment.tsx'))
 const OrderTracking = lazy(() => import('./pages/OrderTracking.tsx'))
 
 function App() {
@@ -60,6 +62,7 @@ function App() {
   return (
     <ToastProvider>
       <Router>
+        <ScrollToTop />
         <div className="app">
           <TopHeader />
           <Header />
@@ -73,6 +76,7 @@ function App() {
                 <Route path="/products/:id" element={<ProductDetails />} />
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/checkout" element={<Checkout />} />
+                <Route path="/payment/:orderId" element={<Payment />} />
                 <Route path="/order-tracking/:orderId" element={<OrderTracking />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<Contact />} />

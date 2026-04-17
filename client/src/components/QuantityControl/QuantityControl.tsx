@@ -52,7 +52,7 @@ export const QuantityControl: React.FC<QuantityControlProps> = ({
     if (isLoading) return;
     
     // Check if stock is available
-    if (1 > stockCount) {
+    if (stockCount <= 0) {
       showToast('❌ Out of stock', 'error');
       return;
     }
@@ -129,11 +129,11 @@ export const QuantityControl: React.FC<QuantityControlProps> = ({
       {!isInCart ? (
         <button
           onClick={handleAddToCart}
-          disabled={isLoading}
-          className={`${styles.addButton} ${isLoading ? styles.disabled : ''}`}
-          aria-label="Add item to cart"
+          disabled={isLoading || stockCount <= 0}
+          className={`${styles.addButton} ${isLoading || stockCount <= 0 ? styles.disabled : ''}`}
+          aria-label={stockCount <= 0 ? "Out of stock" : "Add item to cart"}
         >
-          {isLoading ? '⏳ Adding...' : '🛒 Add to Cart'}
+          {stockCount <= 0 ? '📦 Out of Stock' : (isLoading ? '⏳ Adding...' : '🛒 Add to Cart')}
         </button>
       ) : (
         /* If in cart: Show quantity controls */

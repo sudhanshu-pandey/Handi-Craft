@@ -18,4 +18,10 @@ router.put("/:orderId/status", authMiddleware, orderController.updateOrderStatus
 // Cancel order
 router.post("/:orderId/cancel", authMiddleware, orderController.cancelOrder);
 
+// Cancel order with refund
+router.post("/:orderId/cancel-with-refund", authMiddleware, orderController.cancelOrderWithRefund);
+
+// Submit support ticket for order
+router.post("/:orderId/support", authMiddleware, orderController.submitOrderSupport);
+
 export default router;

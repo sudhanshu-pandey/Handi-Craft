@@ -9,8 +9,8 @@ export const SERVER_CONFIG = {
 export const JWT_CONFIG = {
   SECRET: process.env.JWT_SECRET,
   REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
-  ACCESS_TOKEN_EXPIRES_IN: "15m",
-  REFRESH_TOKEN_EXPIRES_IN: "30d",
+  ACCESS_TOKEN_EXPIRES_IN: "30d",
+  REFRESH_TOKEN_EXPIRES_IN: "300d",
 };
 
 // Twilio SMS & WhatsApp Configuration
