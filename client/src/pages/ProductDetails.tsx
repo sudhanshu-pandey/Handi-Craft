@@ -216,25 +216,6 @@ const ProductDetails = () => {
     })
   }, [reviews])
 
-  const recommendations = useMemo(() => {
-    if (!product) {
-      return { alsoBought: [], trending: [], recently: [] }
-    }
-
-    const allProducts = getAllProducts()
-
-    const alsoBought = allProducts
-      .filter((item: any) => item.category === product.category && item.id !== product.id)
-      .slice(0, 4)
-
-    const trending = [...allProducts]
-      .sort((a: any, b: any) => (b.rating ?? 0) - (a.rating ?? 0))
-      .filter((item: any) => item.id !== product.id)
-      .slice(0, 4)
-
-    return { alsoBought, trending, recently: [] }
-  }, [product, getAllProducts])
-
   useEffect(() => {
     const timer = window.setTimeout(() => setLoading(false), 500)
     return () => window.clearTimeout(timer)
