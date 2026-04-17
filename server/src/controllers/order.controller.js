@@ -41,10 +41,13 @@ const createOrder = async (req, res) => {
       if (!product) {
         continue;
       }
-      
       orderItems.push({
         product: product._id,
-        quantity
+        quantity,
+        name: product.name,
+        price: product.price,
+        category: product.category,
+        image: product.image
       });
     }
     

@@ -1,21 +1,8 @@
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react'
+import { getUserState } from '../utils/geolocation'
+import { getColorForState, type ThemeColorKey } from '../utils/stateColorMap'
 
 type ThemeMode = 'light' | 'dark'
-
-type ThemeColorKey =
-  | 'brown'
-  | 'terracotta'
-  | 'olive'
-  | 'blue'
-  | 'green'
-  | 'purple'
-  | 'orange'
-  | 'teal'
-  | 'crimson'
-  | 'indigo'
-  | 'cocoa'
-  | 'mustard'
-  | 'wine'
 
 type ThemeColor = {
   key: ThemeColorKey
@@ -72,16 +59,45 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [themeMode, setThemeModeState] = useState<ThemeMode>('light')
 
   useEffect(() => {
-    const savedColor = localStorage.getItem(STORAGE_COLOR_KEY) as ThemeColorKey | null
-    const savedMode = localStorage.getItem(STORAGE_MODE_KEY) as ThemeMode | null
+    const initializeTheme = async () => {
+      const savedColor = localStorage.getItem(STORAGE_COLOR_KEY) as ThemeColorKey | null
+      const savedMode = localStorage.getItem(STORAGE_MODE_KEY) as ThemeMode | null
 
-    const nextColor = savedColor && themeColors.some((item) => item.key === savedColor) ? savedColor : 'wine'
-    const nextMode = savedMode === 'dark' ? 'dark' : 'light'
+      // If user has saved color preference, use that
+      if (savedColor && themeColors.some((item) => item.key === savedColor)) {
+        const nextMode = savedMode === 'dark' ? 'dark' : 'light'
+        setActiveColorState(savedColor)
+        setThemeModeState(nextMode)
+        applyThemeColor(savedColor)
+        applyThemeMode(nextMode)
+        return
+      }
 
-    setActiveColorState(nextColor)
-    setThemeModeState(nextMode)
-    applyThemeColor(nextColor)
-    applyThemeMode(nextMode)
+      // Otherwise, try to get location-based color
+      try {
+        const state = await getUserState()
+        const locationColor = state ? getColorForState(state) : 'wine'
+        
+        const nextMode = savedMode === 'dark' ? 'dark' : 'light'
+        setActiveColorState(locationColor)
+        setThemeModeState(nextMode)
+        applyThemeColor(locationColor)
+        applyThemeMode(nextMode)
+        
+        // Save the auto-detected color so we don't fetch location again
+        localStorage.setItem(STORAGE_COLOR_KEY, locationColor)
+      } catch (error) {
+        // If geolocation fails, use default color
+        console.warn('Failed to get location for theme:', error)
+        const nextMode = savedMode === 'dark' ? 'dark' : 'light'
+        setActiveColorState('wine')
+        setThemeModeState(nextMode)
+        applyThemeColor('wine')
+        applyThemeMode(nextMode)
+      }
+    }
+
+    initializeTheme()
   }, [])
 
   const setActiveColor = (color: ThemeColorKey) => {

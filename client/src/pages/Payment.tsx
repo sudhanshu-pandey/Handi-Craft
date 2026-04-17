@@ -42,7 +42,6 @@ const Payment = () => {
   // Countdown timer effect (10 minutes = 600 seconds)
   useEffect(() => {
     if (paymentSuccess || paymentExpired) return;
-
     // Store the expiration time on first load
     const expirationTime = Date.now() + (timeLeft * 1000);
 
@@ -51,7 +50,6 @@ const Payment = () => {
       const secondsRemaining = Math.max(0, Math.ceil((expirationTime - now) / 1000));
 
       setTimeLeft(secondsRemaining);
-
       if (secondsRemaining <= 0) {
         clearInterval(timer);
         setPaymentExpired(true);

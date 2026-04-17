@@ -20,7 +20,6 @@ type ProfileModalProps = {
   isOpen: boolean
   onClose: () => void
 }
-const { showToast } = useToast()
 
 const AVATAR_INITIALS = (name: string) => {
   const parts = name.trim().split(' ')
@@ -1053,6 +1052,7 @@ const WishlistTab = ({ onClose }: { onClose: () => void }) => {
   const dispatch = useAppDispatch()
   const wishlistItems = useAppSelector((state) => state.wishlist.items)
   const { allProducts, loadProducts } = useProducts()
+  const { showToast } = useToast()
 
   // Load products on mount
   useEffect(() => {

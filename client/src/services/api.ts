@@ -6,34 +6,34 @@ const REQUEST_TIMEOUT = 30000; // 30 seconds
 
 class APIClient {
   private baseURL: string;
-  private token: string | null;
-  private refreshToken: string | null;
   private isRefreshing: boolean = false;
   private refreshQueue: ((token: string) => void)[] = [];
 
   constructor() {
     this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-    this.token = localStorage.getItem('accessToken');
-    this.refreshToken = localStorage.getItem('refreshToken');
+  }
+
+  private getToken(): string | null {
+    return localStorage.getItem('accessToken');
+  }
+
+  private getRefreshToken(): string | null {
+    return localStorage.getItem('refreshToken');
   }
 
   setToken(token: string): void {
-    this.token = token;
     if (token) {
       localStorage.setItem('accessToken', token);
     }
   }
 
   setRefreshToken(refreshToken: string): void {
-    this.refreshToken = refreshToken;
     if (refreshToken) {
       localStorage.setItem('refreshToken', refreshToken);
     }
   }
 
   clearToken(): void {
-    this.token = null;
-    this.refreshToken = null;
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
   }
@@ -63,7 +63,8 @@ class APIClient {
       });
     }
 
-    if (!this.refreshToken) {
+    const refreshToken = this.getRefreshToken();
+    if (!refreshToken) {
       this.clearToken();
       throw new Error('Session expired. Please login again.');
     }
@@ -75,7 +76,7 @@ class APIClient {
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken: this.refreshToken }),
+        body: JSON.stringify({ refreshToken }),
       });
 
       if (!response.ok) {
@@ -105,8 +106,9 @@ class APIClient {
       ...options.headers,
     };
 
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+    const token = this.getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
     try {
@@ -192,7 +194,8 @@ class APIClient {
   }
 
   logout() {
-    return this.request('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken: this.refreshToken }) })
+    const refreshToken = this.getRefreshToken();
+    return this.request('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) })
       .finally(() => {
         this.clearToken();
       });

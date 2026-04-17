@@ -7,6 +7,10 @@ const orderItemSchema = new mongoose.Schema({
     required: true,
   },
   quantity: { type: Number, required: true },
+  name: { type: String, required: true },
+  price: { type: Number, required: true },
+  category: { type: String },
+  image: { type: String }
 });
 
 const supportTicketSchema = new mongoose.Schema({
