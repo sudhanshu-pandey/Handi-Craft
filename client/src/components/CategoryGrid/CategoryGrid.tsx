@@ -5,7 +5,8 @@ import { setCategories } from '../../store/slices/filterSlice'
 import styles from './CategoryGrid.module.css'
 
 interface Category {
-  id: number
+  _id?: string
+  id?: number
   name: string
   slug: string
   image: string
@@ -33,7 +34,7 @@ const CategoryGrid = memo(({ categories }: CategoryGridProps) => {
         <div className={styles.grid}>
           {categories.map((category) => (
             <button
-              key={category.id}
+              key={category._id || category.id}
               onClick={() => handleCategoryClick(category)}
               className={styles.categoryCard}
               style={{ cursor: 'pointer', border: 'none', background: 'none', padding: 0 }}

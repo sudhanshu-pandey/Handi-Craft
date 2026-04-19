@@ -34,7 +34,15 @@ const ProductCard = memo(({ product }: ProductCardProps) => {
     <div className={styles.card}>
       <div className={styles.imageWrapper}>
         <Link to={`/products/${navigateId}`} aria-label={`View ${product.name}`}>
-          <img src={product.image} alt={product.name} loading="lazy" />
+          <img 
+            src={product.image} 
+            alt={product.name} 
+            loading="lazy"
+            onError={(e) => {
+              const img = e.target as HTMLImageElement;
+              img.src = 'https://via.placeholder.com/300x300?text=Product+Image';
+            }}
+          />
         </Link>
         {product.sale && <span className={styles.saleBadge}>SALE!</span>}
         <span className={styles.category}>{product.category}</span>

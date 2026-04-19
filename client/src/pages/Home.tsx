@@ -4,7 +4,7 @@ import BenefitsSection from '../components/BenefitsSection/BenefitsSection'
 import TestimonialCarousel from '../components/TestimonialCarousel/TestimonialCarousel'
 import ProductCard from '../components/ProductCard/ProductCard'
 import useProducts from '../hooks/useProducts'
-import { categories as allCategories } from '../data/products'
+import useCategories from '../hooks/useCategories'
 import styles from './pages.module.css'
 import './Home.css'
 
@@ -19,7 +19,7 @@ interface Testimonial {
 
 const Home = () => {
   const { loadProducts, getFirstProducts, loading, error } = useProducts()
-  const [categories] = useState(() => allCategories)
+  const { categories } = useCategories()
   const products = getFirstProducts(6)
 
   // Fetch products on component mount

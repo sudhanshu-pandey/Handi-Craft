@@ -35,7 +35,7 @@ const defaultReviews: ReviewEntry[] = [
     rating: 5,
     comment: 'Excellent finish and truly authentic craftsmanship. Packaging was premium.',
     createdAt: '2026-03-17T08:00:00.000Z',
-    images: ['/images/products/brass-idol.svg'],
+    images: [],
   },
   {
     id: 'rv-2',
@@ -43,7 +43,7 @@ const defaultReviews: ReviewEntry[] = [
     rating: 4,
     comment: 'Looks amazing in my living room. Delivery was quick to Bangalore.',
     createdAt: '2026-03-20T09:15:00.000Z',
-    images: ['/images/products/wooden-box.svg', '/images/products/lamp.svg'],
+    images: [],
   },
 ]
 
@@ -53,12 +53,27 @@ const faqs = [
   { q: 'Can I return this product?', a: 'Easy 7-day returns for damaged/incorrect items.' },
 ]
 
-const productImages = (baseImage: string) => [
-  baseImage,
-  '/images/products/brass-idol.svg',
-  '/images/products/wooden-box.svg',
-  '/images/products/marble-art.svg',
-]
+const productImages = (baseImage: string | undefined, additionalImages?: string[]) => {
+  // Use AWS images from product data
+  const images: string[] = [];
+  
+  // Add main image
+  if (baseImage) {
+    images.push(baseImage);
+  }
+  
+  // Add additional images if available
+  if (additionalImages && additionalImages.length > 0) {
+    images.push(...additionalImages.filter(img => img && img !== baseImage));
+  }
+  
+  // If no images, return placeholder
+  if (images.length === 0) {
+    images.push('https://via.placeholder.com/500x500?text=Product+Image');
+  }
+  
+  return images;
+}
 
 const ProductDetails = () => {
   const { id } = useParams()
@@ -152,7 +167,7 @@ const ProductDetails = () => {
   const debouncedPincode = useDebouncedValue(pincodeInput, 350)
   // Use actual stock from product API if available, otherwise fallback to calculated value
   const stockCount = product?.stock !== undefined ? product.stock : getStockCount(!isNaN(numericId) && numericId > 0 ? numericId : productId)
-  const images = product ? productImages(product.image) : []
+  const images = product ? productImages(product.image, product.images) : []
 
   // State for delivery info
   const [deliveryInfo, setDeliveryInfo] = useState({
@@ -514,7 +529,15 @@ const ProductDetails = () => {
                       className={`${styles.thumbBtn} ${selectedImage === index ? styles.activeThumb : ''}`.trim()}
                       onClick={() => setSelectedImage(index)}
                     >
-                      <img src={image} alt={`${product.name} thumbnail ${index + 1}`} loading="lazy" />
+                      <img 
+                        src={image} 
+                        alt={`${product.name} thumbnail ${index + 1}`} 
+                        loading="lazy"
+                        onError={(e) => {
+                          const img = e.target as HTMLImageElement;
+                          img.src = 'https://via.placeholder.com/80x80?text=Image';
+                        }}
+                      />
                     </button>
                   ))}
                 </div>
@@ -525,7 +548,15 @@ const ProductDetails = () => {
                   onClick={() => setIsFullscreen(true)}
                   data-testid="pdp-main-image"
                 >
-                  <img src={images[selectedImage]} alt={product.name} loading="lazy" />
+                  <img 
+                    src={images[selectedImage]} 
+                    alt={product.name} 
+                    loading="lazy"
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement;
+                      img.src = 'https://via.placeholder.com/500x500?text=Product+Image';
+                    }}
+                  />
                   <span className={styles.zoomHint}>Zoom + Fullscreen</span>
                 </button>
               </div>
@@ -867,7 +898,15 @@ const ProductDetails = () => {
       {isFullscreen && (
         <button type="button" className={styles.modal} onClick={() => setIsFullscreen(false)}>
           <div className={styles.modalContent}>
-            <img src={images[selectedImage]} alt="Fullscreen preview" loading="lazy" />
+            <img 
+              src={images[selectedImage]} 
+              alt="Fullscreen preview" 
+              loading="lazy"
+              onError={(e) => {
+                const img = e.target as HTMLImageElement;
+                img.src = 'https://via.placeholder.com/800x800?text=Product+Image';
+              }}
+            />
           </div>
         </button>
       )}

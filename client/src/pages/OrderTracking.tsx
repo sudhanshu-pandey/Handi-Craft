@@ -444,6 +444,10 @@ const OrderTracking = () => {
                     src={item.product.image} 
                     alt={item.product.name} 
                     loading="lazy"
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement;
+                      img.src = 'https://via.placeholder.com/64x64?text=Product';
+                    }}
                     style={{
                       width: '64px',
                       height: '64px',

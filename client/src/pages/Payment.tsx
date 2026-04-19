@@ -327,6 +327,10 @@ const Payment = () => {
                     <img 
                       src={item.product.image} 
                       alt={item.product.name}
+                      onError={(e) => {
+                        const img = e.target as HTMLImageElement;
+                        img.src = 'https://via.placeholder.com/60x60?text=Product';
+                      }}
                       style={{
                         width: '60px',
                         height: '60px',

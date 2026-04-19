@@ -50,11 +50,21 @@ class RazorpayService {
    */
   loadRazorpayScript(): Promise<boolean> {
     return new Promise((resolve) => {
+      // Check if script is already loaded
+      if ((window as any).Razorpay) {
+        resolve(true);
+        return;
+      }
+
       const script = document.createElement('script');
       script.src = 'https://checkout.razorpay.com/v1/checkout.js';
       script.async = true;
+      script.crossOrigin = 'anonymous';
       script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
+      script.onerror = () => {
+        console.warn('Failed to load Razorpay script, but it may still work');
+        resolve(true); // Continue even if script load fails
+      };
       document.body.appendChild(script);
     });
   }
