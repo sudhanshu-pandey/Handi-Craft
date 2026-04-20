@@ -160,9 +160,7 @@
 }
 
 .viewButton:hover {
-  background-color: var(--secondary-dark, #b89968);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  color: var(--text-on-primary);
 }
 
 .viewButton:active {

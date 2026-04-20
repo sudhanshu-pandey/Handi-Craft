@@ -112,7 +112,7 @@
 }
 
 .paginationButton.active {
-  background-color: #f97316;
+  background-color: var(--primary-color);
   color: #fff;
   font-weight: bold;
 }

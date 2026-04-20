@@ -1,10 +1,11 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useAppDispatch, useAppSelector } from '../store/hooks'
 import { addItem, updateQuantity } from '../store/slices/cartSlice'
 import { addItem as addToWishlist, removeItem as removeFromWishlist } from '../store/slices/wishlistSlice'
 import useProducts from '../hooks/useProducts'
+import useReviews from '../hooks/useReviews'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import LoginModal from '../components/LoginModal/LoginModal'
 import {
@@ -15,37 +16,8 @@ import {
 } from '../utils/commerce'
 import styles from './commerce.module.css'
 import './ProductDetails.css'
-
 type TabKey = 'description' | 'specifications' | 'reviews' | 'faq'
 type PendingAction = 'add' | 'buy' | null
-
-type ReviewEntry = {
-  id: string
-  name: string
-  rating: number
-  comment: string
-  createdAt: string
-  images: string[]
-}
-
-const defaultReviews: ReviewEntry[] = [
-  {
-    id: 'rv-1',
-    name: 'Neha',
-    rating: 5,
-    comment: 'Excellent finish and truly authentic craftsmanship. Packaging was premium.',
-    createdAt: '2026-03-17T08:00:00.000Z',
-    images: [],
-  },
-  {
-    id: 'rv-2',
-    name: 'Karthik',
-    rating: 4,
-    comment: 'Looks amazing in my living room. Delivery was quick to Bangalore.',
-    createdAt: '2026-03-20T09:15:00.000Z',
-    images: [],
-  },
-]
 
 const faqs = [
   { q: 'Is this product handmade?', a: 'Yes, every item is handmade by verified artisan clusters.' },
@@ -150,9 +122,8 @@ const ProductDetails = () => {
   const [quantity, setQuantity] = useState(1)
   const [toast, setToast] = useState('')
   const [loading, setLoading] = useState(true)
-  const [sortType, setSortType] = useState<'latest' | 'highest'>('latest')
-  const [reviews, setReviews] = useState<ReviewEntry[]>(defaultReviews)
-  const [reviewForm, setReviewForm] = useState({ name: '', rating: 5, comment: '' })
+  const [reviewForm, setReviewForm] = useState({ name: '', rating: 5, comment: '', images: [] as File[] })
+  const [imagePreviews, setImagePreviews] = useState<string[]>([])
   const [openFaq, setOpenFaq] = useState<number[]>([0])
   const [pincodeInput, setPincodeInput] = useState('')
   const [purchasedToast, setPurchasedToast] = useState('')
@@ -163,6 +134,9 @@ const ProductDetails = () => {
     const idForCount = !isNaN(numericId) && numericId > 0 ? numericId : productId
     return 6 + (typeof idForCount === 'string' ? idForCount.charCodeAt(0) : idForCount) % 18
   })
+  
+  // Use dynamic reviews hook
+  const { reviews, loading: reviewsLoading, sortType, setSortType, addReview: addReviewToBackend } = useReviews(productId)
 
   const debouncedPincode = useDebouncedValue(pincodeInput, 350)
   // Use actual stock from product API if available, otherwise fallback to calculated value
@@ -214,22 +188,6 @@ const ProductDetails = () => {
       setDeliveryLoading(false)
     })
   }, [debouncedPincode])
-
-  const sortedReviews = useMemo(() => {
-    const copied = [...reviews]
-    if (sortType === 'latest') {
-      return copied.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    }
-    return copied.sort((a, b) => b.rating - a.rating)
-  }, [reviews, sortType])
-
-  const starBreakdown = useMemo(() => {
-    return [5, 4, 3, 2, 1].map((star) => {
-      const count = reviews.filter((item) => item.rating === star).length
-      const percent = reviews.length ? Math.round((count / reviews.length) * 100) : 0
-      return { star, count, percent }
-    })
-  }, [reviews])
 
   useEffect(() => {
     const timer = window.setTimeout(() => setLoading(false), 500)
@@ -451,28 +409,6 @@ const ProductDetails = () => {
     }
   }
 
-  const handleReviewSubmit = (event: FormEvent) => {
-    event.preventDefault()
-    if (!reviewForm.name.trim() || !reviewForm.comment.trim()) {
-      setToast('Please complete review details')
-      return
-    }
-
-    setReviews((current) => [
-      {
-        id: `rv-${Date.now()}`,
-        name: reviewForm.name.trim(),
-        rating: reviewForm.rating,
-        comment: reviewForm.comment.trim(),
-        createdAt: new Date().toISOString(),
-        images: ['/images/products/textile.svg'],
-      },
-      ...current,
-    ])
-    setReviewForm({ name: '', rating: 5, comment: '' })
-    setToast('Review submitted')
-  }
-
   const detectLocation = () => {
     if (!navigator.geolocation) {
       setToast('Geolocation not supported')
@@ -486,6 +422,61 @@ const ProductDetails = () => {
       () => setToast('Could not fetch location'),
       { timeout: 6000 },
     )
+  }
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+
+    const newFiles = Array.from(files)
+    const totalFiles = reviewForm.images.length + newFiles.length
+
+    // Max 5 images per review
+    if (totalFiles > 5) {
+      setToast('Maximum 5 images allowed per review')
+      return
+    }
+
+    // Validate file sizes (max 5MB each)
+    for (const file of newFiles) {
+      if (file.size > 5 * 1024 * 1024) {
+        setToast(`File ${file.name} is too large (max 5MB)`)
+        return
+      }
+      if (!file.type.startsWith('image/')) {
+        setToast(`File ${file.name} is not a valid image`)
+        return
+      }
+    }
+
+    // Create previews for new files
+    const newPreviews: string[] = []
+    let loadedCount = 0
+
+    newFiles.forEach((file) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        newPreviews.push(e.target?.result as string)
+        loadedCount++
+        if (loadedCount === newFiles.length) {
+          setImagePreviews((prev) => [...prev, ...newPreviews])
+        }
+      }
+      reader.readAsDataURL(file)
+    })
+
+    setReviewForm((current) => ({
+      ...current,
+      images: [...current.images, ...newFiles],
+    }))
+  }
+
+  const removeImage = (index: number) => {
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index))
+    setReviewForm((current) => ({
+      ...current,
+      images: current.images.filter((_, i) => i !== index),
+    }))
   }
 
   if (!product) {
@@ -813,47 +804,213 @@ const ProductDetails = () => {
 
               {activeTab === 'reviews' && (
                 <>
+                  {/* Rating Breakdown */}
                   <div className={styles.reviewBreakdown}>
-                    {starBreakdown.map((row) => (
-                      <div className={styles.breakRow} key={row.star}>
-                        <span>{row.star}★</span>
-                        <div className={styles.bar}><div className={styles.fill} style={{ width: `${row.percent}%` }} /></div>
-                        <span>{row.count}</span>
-                      </div>
-                    ))}
+                    {[5, 4, 3, 2, 1].map((star) => {
+                      const count = reviews.filter((r) => r.rating === star).length
+                      const percent = reviews.length ? Math.round((count / reviews.length) * 100) : 0
+                      return (
+                        <div className={styles.breakRow} key={star}>
+                          <span>{star}★</span>
+                          <div className={styles.bar}><div className={styles.fill} style={{ width: `${percent}%` }} /></div>
+                          <span>{count}</span>
+                        </div>
+                      )
+                    })}
                   </div>
 
+                  {/* Reviews Header with Sort */}
                   <div className={styles.row}>
                     <strong style={{ color: 'var(--text-dark)' }}>Customer reviews</strong>
-                    <select value={sortType} onChange={(event) => setSortType(event.target.value as 'latest' | 'highest')} className={styles.input} style={{ maxWidth: 220 }}>
+                    <select 
+                      value={sortType} 
+                      onChange={(event) => setSortType(event.target.value as 'latest' | 'highest')} 
+                      className={styles.input} 
+                      style={{ maxWidth: 220 }}
+                    >
                       <option value="latest">Sort: Latest</option>
                       <option value="highest">Sort: Highest rating</option>
                     </select>
                   </div>
 
-                  {sortedReviews.map((review) => (
-                    <article className={styles.reviewItem} key={review.id}>
-                      <div className={styles.row}>
-                        <strong style={{ color: 'var(--text-dark)' }}>{review.name}</strong>
-                        <span>{new Date(review.createdAt).toLocaleDateString('en-IN')}</span>
-                      </div>
-                      <p style={{ color: 'var(--text-dark)' }}>{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</p>
-                      <p>{review.comment}</p>
-                      <div className={styles.reviewImages}>
-                        {review.images.map((img, idx) => (
-                          <img key={`${review.id}-${idx}`} src={img} alt="review" className={styles.reviewImage} loading="lazy" />
-                        ))}
-                      </div>
-                    </article>
-                  ))}
+                  {/* Reviews Loading State */}
+                  {reviewsLoading && <p style={{ textAlign: 'center', color: '#999' }}>Loading reviews...</p>}
 
-                  <form className={styles.softCard} style={{ padding: 12, display: 'grid', gap: 8 }} onSubmit={handleReviewSubmit}>
+                  {/* Reviews List */}
+                  {!reviewsLoading && reviews.length === 0 ? (
+                    <p style={{ textAlign: 'center', color: '#999', padding: '20px 0' }}>No reviews yet. Be the first to review!</p>
+                  ) : (
+                    reviews.map((review) => (
+                      <article className={styles.reviewItem} key={review._id}>
+                        <div className={styles.row}>
+                          <strong style={{ color: 'var(--text-dark)' }}>{review.name}</strong>
+                          <span>{new Date(review.createdAt).toLocaleDateString('en-IN')}</span>
+                        </div>
+                        <p style={{ color: 'var(--text-dark)' }}>{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</p>
+                        <p>{review.comment}</p>
+                        {review.images && review.images.length > 0 && (
+                          <div className={styles.reviewImages}>
+                            {review.images.map((img, idx) => (
+                              <img 
+                                key={`${review._id}-${idx}`} 
+                                src={img} 
+                                alt="review" 
+                                className={styles.reviewImage} 
+                                loading="lazy"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none'
+                                }}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </article>
+                    ))
+                  )}
+
+                  {/* Add Review Form */}
+                  <form 
+                    className={styles.softCard} 
+                    style={{ padding: 12, display: 'grid', gap: 8 }} 
+                    onSubmit={async (e) => {
+                      e.preventDefault()
+                      if (!reviewForm.name.trim() || !reviewForm.comment.trim()) {
+                        setToast('Please complete review details')
+                        return
+                      }
+                      try {
+                        // Convert images to base64
+                        const imageUrls: string[] = []
+                        for (const file of reviewForm.images) {
+                          const base64 = await new Promise<string>((resolve) => {
+                            const reader = new FileReader()
+                            reader.onload = () => resolve(reader.result as string)
+                            reader.readAsDataURL(file)
+                          })
+                          imageUrls.push(base64)
+                        }
+
+                        await addReviewToBackend({
+                          rating: reviewForm.rating,
+                          comment: reviewForm.comment.trim(),
+                          name: reviewForm.name.trim(),
+                          images: imageUrls,
+                        })
+                        setReviewForm({ name: '', rating: 5, comment: '', images: [] })
+                        setImagePreviews([])
+                        setToast('Review submitted successfully!')
+                      } catch (err) {
+                        setToast('Failed to submit review')
+                      }
+                    }}
+                  >
                     <strong style={{ color: 'var(--text-dark)' }}>Add review</strong>
-                    <input className={styles.input} placeholder="Your name" value={reviewForm.name} onChange={(event) => setReviewForm((current) => ({ ...current, name: event.target.value }))} />
-                    <select className={styles.input} value={reviewForm.rating} onChange={(event) => setReviewForm((current) => ({ ...current, rating: Number(event.target.value) }))}>
+                    <input 
+                      className={styles.input} 
+                      placeholder="Your name" 
+                      value={reviewForm.name} 
+                      onChange={(event) => setReviewForm((current) => ({ ...current, name: event.target.value }))} 
+                      required
+                    />
+                    <select 
+                      className={styles.input} 
+                      value={reviewForm.rating} 
+                      onChange={(event) => setReviewForm((current) => ({ ...current, rating: Number(event.target.value) }))}
+                    >
                       {[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating} Stars</option>)}
                     </select>
-                    <textarea className={styles.input} rows={3} placeholder="Write your review" value={reviewForm.comment} onChange={(event) => setReviewForm((current) => ({ ...current, comment: event.target.value }))} />
+                    <textarea 
+                      className={styles.input} 
+                      rows={3} 
+                      placeholder="Write your review" 
+                      value={reviewForm.comment} 
+                      onChange={(event) => setReviewForm((current) => ({ ...current, comment: event.target.value }))}
+                      minLength={10}
+                      required
+                    />
+                    
+                    {/* Image Upload Section */}
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      <label style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-dark)' }}>
+                        Add Photos/Videos (Optional)
+                        <span style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 400, marginTop: 4 }}>
+                          Max 5 images, 5MB each
+                        </span>
+                      </label>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        style={{
+                          padding: '8px 12px',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                        }}
+                      />
+                    </div>
+
+                    {/* Image Previews */}
+                    {imagePreviews.length > 0 && (
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
+                        gap: 8,
+                      }}>
+                        {imagePreviews.map((preview, index) => (
+                          <div
+                            key={`${index}-preview`}
+                            style={{
+                              position: 'relative',
+                              width: '100%',
+                              paddingBottom: '100%',
+                              overflow: 'hidden',
+                              borderRadius: '4px',
+                              border: '1px solid var(--border-color)',
+                            }}
+                          >
+                            <img
+                              src={preview}
+                              alt={`review preview ${index + 1}`}
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeImage(index)}
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                right: 0,
+                                background: 'rgba(0, 0, 0, 0.7)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                width: '24px',
+                                height: '24px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '16px',
+                                padding: 0,
+                                margin: '4px',
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <button type="submit" className={styles.primaryBtn}>Submit Review</button>
                   </form>
                 </>

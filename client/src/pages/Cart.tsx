@@ -350,7 +350,6 @@ const Cart = () => {
                   </button>
                 </div>
                 {couponError && <p className="couponError">{couponError}</p>}
-                <p className="couponHelper">Coupons are fetched from our backend</p>
               </div>
             )}
 

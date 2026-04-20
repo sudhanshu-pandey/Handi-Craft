@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import CategoryGrid from '../components/CategoryGrid/CategoryGrid'
+import BannerCarousel from '../components/BannerCarousel/BannerCarousel'
 import BenefitsSection from '../components/BenefitsSection/BenefitsSection'
 import TestimonialCarousel from '../components/TestimonialCarousel/TestimonialCarousel'
 import ProductCard from '../components/ProductCard/ProductCard'
@@ -86,16 +87,8 @@ const Home = () => {
 
   return (
     <div>
-      {/* Hero Section */}
-      <section className={styles.heroSection}>
-        <div className="container">
-          <h1>Welcome to MLS Handicrafts</h1>
-          <p>Discover authentic, handcrafted products that celebrate tradition and artistry</p>
-          <a href="/products" className="btn btn-primary">
-            Shop Now
-          </a>
-        </div>
-      </section>
+      {/* Banner Carousel */}
+      <BannerCarousel />
 
       {/* Categories Section */}
       <CategoryGrid categories={categories} />
